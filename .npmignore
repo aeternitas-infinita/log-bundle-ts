@@ -1,0 +1,17 @@
+# Source files
+src/
+
+# Configuration files
+tsconfig.json
+tsconfig.build.json
+eslint.config.ts
+.prettierrc
+.gitignore
+.gitattributes
+
+# Development files
+node_modules/
+*.tgz
+
+# Build artifacts (keep only dist/)
+*.tsbuildinfo

@@ -1,0 +1,66 @@
+{
+  "name": "log-bundle",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "npm run clean && npm run build:esm",
+    "build:esm": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run build && npm run test",
+    "test": "npm run lint",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aeternitas-infinita/log-bundle-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aeternitas-infinita/log-bundle-ts/issues"
+  },
+  "homepage": "https://github.com/aeternitas-infinita/log-bundle-ts#readme",
+  "peerDependencies": {
+    "@sentry/node": "^10.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@sentry/node": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@sentry/profiling-node": "^10.8.0",
+    "date-fns-tz": "^3.2.0",
+    "pino": "^9.9.0",
+    "pino-pretty": "^13.1.1"
+  },
+  "devDependencies": {
+    "@sentry/node": "^10.8.0",
+    "@types/node": "^24.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "eslint": "^9.34.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "jiti": "^2.5.1",
+    "prettier": "^3.2.5",
+    "prettier-plugin-organize-imports": "^4.2.0",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.42.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
