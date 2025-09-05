@@ -1,6 +1,6 @@
 {
   "name": "log-bundle",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -39,25 +39,25 @@
     }
   },
   "dependencies": {
-    "@sentry/profiling-node": "^10.8.0",
+    "@sentry/profiling-node": "^10.10.0",
     "date-fns-tz": "^3.2.0",
-    "pino": "^9.9.0",
+    "pino": "^9.9.2",
     "pino-pretty": "^13.1.1"
   },
   "devDependencies": {
     "@sentry/node": "^10.8.0",
-    "@types/node": "^24.3.0",
+    "@types/node": "^24.3.1",
     "@typescript-eslint/eslint-plugin": "^8.41.0",
     "@typescript-eslint/parser": "^8.42.0",
     "eslint": "^9.34.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "jiti": "^2.5.1",
-    "prettier": "^3.2.5",
+    "prettier": "^3.6.2",
     "prettier-plugin-organize-imports": "^4.2.0",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
+    "typescript": "^5.9.2",
     "typescript-eslint": "^8.42.0"
   },
   "engines": {
