@@ -1,0 +1,78 @@
+# Source files - Only publish dist/
+src/
+
+# TypeScript configuration
+tsconfig.json
+tsconfig.build.json
+*.tsbuildinfo
+
+# Linting and formatting
+eslint.config.ts
+.eslintrc*
+.eslintignore
+.prettierrc
+.prettierrc.*
+.prettierignore
+.editorconfig
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# CI/CD
+.travis.yml
+.gitlab-ci.yml
+.circleci/
+azure-pipelines.yml
+.github/
+
+# Testing
+**/*.test.ts
+**/*.spec.ts
+**/__tests__/
+**/__mocks__/
+coverage/
+.nyc_output/
+jest.config.*
+vitest.config.*
+
+# Documentation (keep only README.md and LICENSE)
+docs/
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+CHANGELOG.md
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Environment
+.env
+.env.*
+
+# Package managers
+.yarn/
+.pnpm-debug.log
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Misc
+.cache/
+.temp/
+tmp/
+temp/
+.claude/

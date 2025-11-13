@@ -1,0 +1,83 @@
+{
+  "name": "log-bundle",
+  "version": "0.1.1",
+  "description": "Production-ready logging and error handling library for Node.js with Pino, Sentry, and Fastify integration",
+  "license": "MIT",
+  "author": "aeternitas-infinita",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "npm run clean && npm run build:types && npm run build:esm",
+    "build:types": "tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "build:esm": "tsc -p tsconfig.build.json --declaration false --declarationMap false",
+    "clean": "rimraf dist",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "prepublishOnly": "npm run build && npm run test",
+    "prepack": "npm run build",
+    "test": "npm run typecheck && npm run lint",
+    "test:types": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --cache --cache-location ./node_modules/.cache/eslint",
+    "lint:fix": "npm run lint -- --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"*.{json,md}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"*.{json,md}\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aeternitas-infinita/log-bundle-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aeternitas-infinita/log-bundle-ts/issues"
+  },
+  "homepage": "https://github.com/aeternitas-infinita/log-bundle-ts#readme",
+  "peerDependencies": {
+    "fastify": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@sentry/node": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@sentry/node": "^10.22.0",
+    "@sentry/profiling-node": "^10.25.0",
+    "date-fns-tz": "^3.2.0",
+    "pino": "^10.1.0",
+    "pino-pretty": "^13.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "fastify": "^5.6.2",
+    "jiti": "^2.6.1",
+    "prettier": "^3.6.2",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "rimraf": "^6.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
