@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as Sentry from "@sentry/node";
 import type * as pino from "pino";
+import { logConfig } from "../../core/config.js";
 import { getSource } from "../../core/helpers.js";
 
 /**
@@ -40,6 +41,11 @@ const EXCLUDED_KEYS = new Set(["msg", "message", "level", "time", "err", "error"
  * @param options - Configuration options for Sentry sending
  */
 export function sendToSentry(level: pino.Level, logObj: any = {}, message = "", options: SentrySendOptions = {}): void {
+    // Check if Sentry is globally enabled
+    if (!logConfig.enableSentry) {
+        return;
+    }
+
     if (!isSentryInitialized()) {
         return;
     }

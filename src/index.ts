@@ -1,5 +1,6 @@
 // Core exports
 export { logConfig } from "./core/config.js";
+export type { LogBundleConfig } from "./core/config.js";
 export { createLogger } from "./core/logger.js";
 export type { LoggerConfig } from "./core/logger.js";
 export { createLoggerWithSentry } from "./core/logger-with-sentry.js";

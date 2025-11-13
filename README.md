@@ -56,7 +56,7 @@ logger.error({ err: new Error("Something went wrong") }, "Error occurred");
 ### Logger with Sentry
 
 ```typescript
-import { createLoggerWithSentry } from "log-bundle";
+import { createLoggerWithSentry, logConfig } from "log-bundle";
 import * as Sentry from "@sentry/node";
 
 // Initialize Sentry first
@@ -65,6 +65,9 @@ Sentry.init({
     environment: "production",
 });
 
+// Enable Sentry integration globally
+logConfig.enableSentry = true;
+
 const logger = createLoggerWithSentry({
     name: "my-app",
     level: "info",
@@ -72,7 +75,7 @@ const logger = createLoggerWithSentry({
 });
 
 // Errors are automatically sent to Sentry
-logger.error({ err: new Error("Critical error") }, "This will be tracked in Sentry");
+logger.errorWithSentry({ err: new Error("Critical error") }, "This will be tracked in Sentry");
 ```
 
 ### Fastify Integration
@@ -192,12 +195,30 @@ type LoggerConfig = {
 
 ### Sentry Configuration
 
-Control which errors are sent to Sentry:
+#### Global Sentry Control
+
+Enable or disable Sentry integration globally using the `logConfig`:
+
+```typescript
+import { logConfig } from "log-bundle";
+
+// Enable Sentry integration globally (default: false)
+logConfig.enableSentry = true;
+
+// Disable Sentry integration at runtime
+logConfig.enableSentry = false;
+```
+
+**Note**: Sentry is **disabled by default**. You must explicitly set `logConfig.enableSentry = true` after initializing Sentry to start sending logs.
+
+#### Error-Level Sentry Control
+
+Control which error types are sent to Sentry:
 
 ```typescript
 import { errorConfig, shouldSendToSentry, ErrorType } from "log-bundle";
 
-// Configure Sentry reporting
+// Configure Sentry reporting by error type
 errorConfig.sentryReportLevels = {
     [ErrorType.INTERNAL]: true,
     [ErrorType.DATABASE]: true,
@@ -266,6 +287,11 @@ return { data: result };
 ### 4. Configure Sentry Thresholds Appropriately
 
 ```typescript
+import { logConfig, errorConfig, ErrorType } from "log-bundle";
+
+// Enable Sentry in production only
+logConfig.enableSentry = process.env.NODE_ENV === "production";
+
 // Only send critical errors to Sentry to avoid noise
 errorConfig.sentryReportLevels = {
     [ErrorType.INTERNAL]: true, // Server bugs
@@ -304,6 +330,25 @@ setupProcessErrorHandlers({
 
 ## API Reference
 
+### Global Configuration
+
+#### `logConfig: LogBundleConfig`
+
+Global configuration object for controlling library behavior.
+
+```typescript
+type LogBundleConfig = {
+    enableSentry: boolean; // Enable/disable Sentry integration globally (default: false)
+};
+```
+
+**Example:**
+```typescript
+import { logConfig } from "log-bundle";
+
+logConfig.enableSentry = true;
+```
+
 ### Core Functions
 
 #### `createLogger(config: LoggerConfig)`
@@ -312,7 +357,7 @@ Creates a Pino logger instance with the specified configuration.
 
 #### `createLoggerWithSentry(config: LoggerConfig)`
 
-Creates a logger with automatic Sentry integration. Requires Sentry to be initialized first.
+Creates a logger with automatic Sentry integration. Requires Sentry to be initialized first and `logConfig.enableSentry` to be set to `true`.
 
 ### Error Factories
 
@@ -369,7 +414,13 @@ Checks if an error type should be reported to Sentry.
 This library is written in TypeScript and provides full type definitions. All exports are fully typed.
 
 ```typescript
-import type { LoggerConfig, ErrorData, HttpError, FastifyErrorHandlerOptions } from "log-bundle";
+import type {
+    LogBundleConfig,
+    LoggerConfig,
+    ErrorData,
+    HttpError,
+    FastifyErrorHandlerOptions,
+} from "log-bundle";
 ```
 
 ## License
