@@ -129,71 +129,84 @@ errorConfig.reset();
 ### Minimal Setup
 
 ```typescript
-import { initSentryForFastify } from "log-bundle";
+import * as Sentry from "@sentry/node";
+import { logConfig } from "log-bundle";
 
-initSentryForFastify({
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
 });
+
+logConfig.enableSentry = true;
 ```
 
 ### Complete Configuration
 
 ```typescript
-initSentryForFastify({
-  // Required
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import { logConfig } from "log-bundle";
+
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
 
   // Performance monitoring
-  tracesSampleRate: 0.1, // 10% of requests
-  profilesSampleRate: 0.1, // 10% of traces
+  tracesSampleRate: 0.1,
+  profilesSampleRate: 0.1,
 
-  // Features
-  enableProfiling: true,
-  enablePostgres: true,
-
-  // Security
-  redactHeaders: ["authorization", "cookie", "x-api-key"],
-
-  // Custom filtering
-  beforeSend: (event, hint) => {
-    if (shouldIgnoreError(hint.originalException)) {
-      return null;
-    }
-    return event;
-  },
-
-  // Additional integrations
-  additionalIntegrations: [
+  // Integrations
+  integrations: [
+    Sentry.httpIntegration(),
+    nodeProfilingIntegration(),
+    Sentry.postgresIntegration(),
     Sentry.prismaIntegration(),
     Sentry.redisIntegration(),
   ],
+
+  // Security and filtering
+  beforeSend: (event, hint) => {
+    // Filter errors
+    if (hint?.originalException?.name === "ValidationError") {
+      return null;
+    }
+
+    // Redact headers
+    if (event.request?.headers) {
+      delete event.request.headers.authorization;
+      delete event.request.headers.cookie;
+    }
+
+    return event;
+  },
 });
+
+logConfig.enableSentry = true;
 ```
 
 ### Environment-Specific
 
 ```typescript
-const config = {
-  dsn: process.env.SENTRY_DSN!,
-  environment: process.env.NODE_ENV!,
-};
+import * as Sentry from "@sentry/node";
+import { logConfig } from "log-bundle";
 
 if (process.env.NODE_ENV === "production") {
-  Object.assign(config, {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN!,
+    environment: "production",
     tracesSampleRate: 0.05,
     profilesSampleRate: 0.01,
-    enableProfiling: true,
   });
+  logConfig.enableSentry = true;
 } else if (process.env.NODE_ENV === "development") {
-  Object.assign(config, {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN!,
+    environment: "development",
     tracesSampleRate: 1.0,
     sendDefaultPii: true,
   });
+  logConfig.enableSentry = true;
 }
-
-initSentryForFastify(config);
 ```
 
 ## Fastify Error Handler Configuration
@@ -331,17 +344,20 @@ ENABLE_REQUEST_BODY_CAPTURE=false
 Use in configuration:
 
 ```typescript
+import * as Sentry from "@sentry/node";
+import { logConfig, createLogger } from "log-bundle";
+
 const logger = createLogger({
   level: process.env.LOG_LEVEL || "info",
 });
 
 if (process.env.SENTRY_DSN) {
-  initSentryForFastify({
+  Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV!,
     tracesSampleRate: parseFloat(process.env.SENTRY_SAMPLE_RATE || "0.1"),
-    enableProfiling: process.env.ENABLE_PROFILING === "true",
   });
+  logConfig.enableSentry = true;
 }
 ```
 

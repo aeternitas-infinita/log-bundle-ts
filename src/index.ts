@@ -5,8 +5,6 @@ export { createLogger } from "./core/logger.js";
 export type { LoggerConfig, LoggerWithSentry } from "./core/logger.js";
 
 // Sentry utilities
-export { initSentryForFastify } from "./integrations/sentry/init.js";
-export type { SentryInitConfig } from "./integrations/sentry/init.js";
 export { isSentryInitialized, sendToSentry } from "./integrations/sentry/plugin.js";
 export type { SentrySendOptions } from "./integrations/sentry/plugin.js";
 

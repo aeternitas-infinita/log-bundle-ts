@@ -27,15 +27,18 @@ npm install @sentry/node fastify
 ## Quick Start
 
 ```typescript
-import { initSentryForFastify, createLogger, setupProcessErrorHandlers, createErrorPipe, notFound } from "log-bundle";
+import * as Sentry from "@sentry/node";
+import { logConfig, createLogger, setupProcessErrorHandlers, createErrorPipe, notFound } from "log-bundle";
 import fastify from "fastify";
 
 // 1. Initialize Sentry (optional, must be first)
 if (process.env.SENTRY_DSN) {
-  initSentryForFastify({
+  Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "development",
+    tracesSampleRate: 0.1,
   });
+  logConfig.enableSentry = true;
 }
 
 // 2. Create logger
@@ -178,14 +181,16 @@ app.get("/users/:id", async (request, reply) => {
 Initialize Sentry at the top of your entry file:
 
 ```typescript
-import { initSentryForFastify } from "log-bundle";
+import * as Sentry from "@sentry/node";
+import { logConfig } from "log-bundle";
 
-initSentryForFastify({
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
-  enableProfiling: true,
   tracesSampleRate: 0.1,
 });
+
+logConfig.enableSentry = true;
 ```
 
 Control what gets sent to Sentry:
@@ -278,10 +283,11 @@ createFastifyErrorHandler(logger: Logger, options?: FastifyErrorHandlerOptions):
 ### Sentry
 
 ```typescript
-initSentryForFastify(config: SentryInitConfig): void
 isSentryInitialized(): boolean
 sendToSentry(level: Level, logObj: any, message: string, options?: SentrySendOptions): void
 ```
+
+Note: Initialize Sentry using `@sentry/node` directly, then enable it with `logConfig.enableSentry = true`.
 
 ### Process Handlers
 

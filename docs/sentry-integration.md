@@ -1,6 +1,6 @@
 # Sentry Integration
 
-log-bundle provides seamless integration with Sentry for error tracking, performance monitoring, and profiling in production applications.
+log-bundle works seamlessly with Sentry for error tracking, performance monitoring, and profiling in production applications.
 
 ## Quick Start
 
@@ -16,12 +16,23 @@ Initialize Sentry at the very top of your application entry point, before import
 
 ```typescript
 // src/index.ts
-import { initSentryForFastify } from "log-bundle";
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import { logConfig } from "log-bundle";
 
-initSentryForFastify({
+// Initialize Sentry first
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
+  tracesSampleRate: 0.1,
+  integrations: [
+    Sentry.httpIntegration(),
+    nodeProfilingIntegration(),
+  ],
 });
+
+// Enable Sentry in log-bundle
+logConfig.enableSentry = true;
 
 // Now import other modules
 import fastify from "fastify";
@@ -33,40 +44,66 @@ import fastify from "fastify";
 ### Basic Configuration
 
 ```typescript
-initSentryForFastify({
+import * as Sentry from "@sentry/node";
+import { logConfig } from "log-bundle";
+
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
 });
+
+logConfig.enableSentry = true;
 ```
 
 ### Advanced Configuration
 
 ```typescript
-initSentryForFastify({
-  // Required
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import { logConfig } from "log-bundle";
+
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
 
   // Performance monitoring
-  tracesSampleRate: 0.1, // Sample 10% of transactions
-  enableProfiling: true,
-  profilesSampleRate: 0.1, // Sample 10% of profiles
+  tracesSampleRate: 0.1,
+  profilesSampleRate: 0.1,
 
-  // Database instrumentation
-  enablePostgres: true,
-
-  // Security - redact sensitive headers
-  redactHeaders: ["authorization", "cookie", "x-api-key", "x-api-token"],
+  // Integrations
+  integrations: [
+    Sentry.httpIntegration(),
+    Sentry.requestDataIntegration({
+      include: {
+        cookies: false,
+        data: true,
+        headers: true,
+        ip: true,
+      },
+    }),
+    nodeProfilingIntegration(),
+    Sentry.postgresIntegration(),
+  ],
 
   // Custom filter
   beforeSend: (event, hint) => {
-    // Filter out specific errors
-    if (event.exception?.values?.[0]?.type === "ValidationError") {
-      return null; // Don't send to Sentry
+    // Filter out validation errors
+    if (hint?.originalException?.name === "ZodError") {
+      return null;
     }
+
+    // Redact sensitive headers
+    if (event.request?.headers) {
+      delete event.request.headers.authorization;
+      delete event.request.headers.cookie;
+    }
+
     return event;
   },
 });
+
+// Enable Sentry in log-bundle
+logConfig.enableSentry = true;
 ```
 
 ## What Gets Sent to Sentry
@@ -189,16 +226,20 @@ The error handlers automatically capture request context:
 Enable traces to monitor application performance:
 
 ```typescript
-initSentryForFastify({
+import * as Sentry from "@sentry/node";
+import { logConfig } from "log-bundle";
+
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
-
-  // Monitor 10% of requests
-  tracesSampleRate: 0.1,
-
-  // Enable database instrumentation
-  enablePostgres: true,
+  tracesSampleRate: 0.1, // Monitor 10% of requests
+  integrations: [
+    Sentry.httpIntegration(),
+    Sentry.postgresIntegration(), // Database instrumentation
+  ],
 });
+
+logConfig.enableSentry = true;
 ```
 
 This automatically tracks:
@@ -212,12 +253,17 @@ This automatically tracks:
 Enable profiling to identify performance bottlenecks:
 
 ```typescript
-initSentryForFastify({
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
-
-  enableProfiling: true,
+  tracesSampleRate: 0.1,
   profilesSampleRate: 0.1, // Profile 10% of traces
+  integrations: [
+    nodeProfilingIntegration(),
+  ],
 });
 ```
 
@@ -227,25 +273,6 @@ Profiling captures:
 - Function call stacks
 - Hot paths in code
 
-## Database Instrumentation
-
-Enable PostgreSQL instrumentation:
-
-```typescript
-initSentryForFastify({
-  dsn: process.env.SENTRY_DSN!,
-  environment: process.env.NODE_ENV!,
-
-  enablePostgres: true,
-});
-```
-
-This captures:
-- Query execution time
-- Query text (parameterized)
-- Connection pool stats
-- Slow query alerts
-
 ## Security Best Practices
 
 ### Redact Sensitive Headers
@@ -253,17 +280,17 @@ This captures:
 Always redact sensitive headers to prevent leaking credentials:
 
 ```typescript
-initSentryForFastify({
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
-
-  redactHeaders: [
-    "authorization",
-    "cookie",
-    "x-api-key",
-    "x-api-token",
-    "x-csrf-token",
-  ],
+  beforeSend: (event) => {
+    if (event.request?.headers) {
+      delete event.request.headers.authorization;
+      delete event.request.headers.cookie;
+      delete event.request.headers["x-api-key"];
+    }
+    return event;
+  },
 });
 ```
 
@@ -272,15 +299,14 @@ initSentryForFastify({
 Avoid sending personally identifiable information:
 
 ```typescript
-initSentryForFastify({
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
-
   beforeSend: (event) => {
-    // Remove sensitive data from context
-    if (event.contexts?.user) {
-      delete event.contexts.user.email;
-      delete event.contexts.user.ip_address;
+    // Remove sensitive user data
+    if (event.user) {
+      delete event.user.email;
+      delete event.user.ip_address;
     }
 
     // Remove sensitive request data
@@ -315,12 +341,14 @@ app.setErrorHandler(
 
 ```typescript
 if (process.env.NODE_ENV === "development") {
-  initSentryForFastify({
+  Sentry.init({
     dsn: process.env.SENTRY_DSN!,
     environment: "development",
     tracesSampleRate: 1.0, // Sample all requests
     sendDefaultPii: true, // Useful for debugging
   });
+
+  logConfig.enableSentry = true;
 }
 ```
 
@@ -328,14 +356,19 @@ if (process.env.NODE_ENV === "development") {
 
 ```typescript
 if (process.env.NODE_ENV === "production") {
-  initSentryForFastify({
+  Sentry.init({
     dsn: process.env.SENTRY_DSN!,
     environment: "production",
-    tracesSampleRate: 0.05, // Sample 5% of requests
-    profilesSampleRate: 0.01, // Profile 1% of traces
-    enableProfiling: true,
-    enablePostgres: true,
+    tracesSampleRate: 0.05, // Sample 5%
+    profilesSampleRate: 0.01, // Profile 1%
+    integrations: [
+      Sentry.httpIntegration(),
+      nodeProfilingIntegration(),
+      Sentry.postgresIntegration(),
+    ],
   });
+
+  logConfig.enableSentry = true;
 }
 ```
 
@@ -343,12 +376,13 @@ if (process.env.NODE_ENV === "production") {
 
 ```typescript
 if (process.env.NODE_ENV === "staging") {
-  initSentryForFastify({
+  Sentry.init({
     dsn: process.env.SENTRY_DSN!,
     environment: "staging",
     tracesSampleRate: 0.2, // Higher sampling for testing
-    enableProfiling: false, // Disable to save quota
   });
+
+  logConfig.enableSentry = true;
 }
 ```
 
@@ -383,11 +417,11 @@ Add custom Sentry integrations:
 ```typescript
 import * as Sentry from "@sentry/node";
 
-initSentryForFastify({
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
-
-  additionalIntegrations: [
+  integrations: [
+    Sentry.httpIntegration(),
     Sentry.prismaIntegration(),
     Sentry.redisIntegration(),
   ],
@@ -415,16 +449,18 @@ Check initialization order:
 ```typescript
 // BAD - Sentry initialized after imports
 import fastify from "fastify";
-import { initSentryForFastify } from "log-bundle";
+import * as Sentry from "@sentry/node";
 
-initSentryForFastify({ ... });
+Sentry.init({ ... });
 ```
 
 ```typescript
 // GOOD - Sentry initialized first
-import { initSentryForFastify } from "log-bundle";
+import * as Sentry from "@sentry/node";
+import { logConfig } from "log-bundle";
 
-initSentryForFastify({ ... });
+Sentry.init({ ... });
+logConfig.enableSentry = true;
 
 import fastify from "fastify";
 ```
@@ -434,7 +470,7 @@ import fastify from "fastify";
 Reduce sample rates:
 
 ```typescript
-initSentryForFastify({
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
   tracesSampleRate: 0.01, // 1% instead of 10%

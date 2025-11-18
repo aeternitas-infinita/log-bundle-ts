@@ -29,18 +29,27 @@ If you want to use Sentry for error tracking, initialize it at the very top of y
 
 ```typescript
 // src/index.ts or src/server.ts
-import { initSentryForFastify } from "log-bundle";
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
 
-// Initialize Sentry first
-initSentryForFastify({
+// Initialize Sentry first (before any other imports)
+Sentry.init({
   dsn: process.env.SENTRY_DSN!,
   environment: process.env.NODE_ENV!,
-  enableProfiling: true,
   tracesSampleRate: 0.1,
+  integrations: [
+    Sentry.httpIntegration(),
+    nodeProfilingIntegration(),
+  ],
 });
 
 // Now import other modules
 import fastify from "fastify";
+import { logConfig } from "log-bundle";
+
+// Enable Sentry in log-bundle
+logConfig.enableSentry = true;
+
 // ... rest of imports
 ```
 
@@ -97,17 +106,25 @@ Here's a complete example of setting up log-bundle with Fastify:
 
 ```typescript
 // src/index.ts
-import { initSentryForFastify, createLogger, setupProcessErrorHandlers, createErrorPipe } from "log-bundle";
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import { logConfig, createLogger, setupProcessErrorHandlers, createErrorPipe } from "log-bundle";
 import fastify from "fastify";
 
 // 1. Initialize Sentry (must be first!)
 if (process.env.SENTRY_DSN) {
-  initSentryForFastify({
+  Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "development",
-    enableProfiling: true,
     tracesSampleRate: 0.1,
+    integrations: [
+      Sentry.httpIntegration(),
+      nodeProfilingIntegration(),
+    ],
   });
+
+  // Enable Sentry in log-bundle
+  logConfig.enableSentry = true;
 }
 
 // 2. Create logger
