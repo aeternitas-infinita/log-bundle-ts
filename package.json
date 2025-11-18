@@ -1,6 +1,6 @@
 {
   "name": "log-bundle",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Production-ready logging and error handling library for Node.js with Pino, Sentry, and Fastify integration",
   "license": "MIT",
   "author": "aeternitas-infinita",
