@@ -2,6 +2,14 @@
 
 log-bundle provides a comprehensive error handling system with predefined error types, HTTP status mappings, and RFC 7807 compliant responses.
 
+## Public vs Internal Data
+
+The error system clearly separates:
+- **Public data** - Safe to send to end users (title, detail, meta, validationErrors)
+- **Internal data** - Only for logs/Sentry (cause, context, tags)
+
+This prevents accidental exposure of sensitive information like stack traces, database queries, or internal system details to end users.
+
 ## Error Types
 
 The library provides the following error types:
@@ -29,13 +37,25 @@ Use factory functions to create error data objects:
 ```typescript
 import { notFound } from "log-bundle";
 
+// Simple usage
 const error = notFound("user", userId);
 // Returns: ErrorData with 404 status
 
-// With additional context
+// With internal context (for logs/Sentry only)
 const error = notFound("user", userId, {
-  requestId: "abc123",
-  searchQuery: { email: "user@example.com" },
+  internal: {
+    context: {
+      requestId: "abc123",
+      searchQuery: { email: "user@example.com" },
+    }
+  }
+});
+
+// With public metadata (sent to users)
+const error = notFound("user", userId, {
+  public: {
+    meta: { suggestion: "Check the user ID format" }
+  }
 });
 ```
 
@@ -44,12 +64,25 @@ const error = notFound("user", userId, {
 ```typescript
 import { validation } from "log-bundle";
 
+// Simple usage
 const error = validation("Email must be valid", "email");
 // Returns: ErrorData with 400 status and validation errors array
 
+// With internal context
 const error = validation("Age must be >= 18", "age", {
-  providedValue: 15,
-  requestId: "abc123",
+  internal: {
+    context: {
+      providedValue: 15,
+      requestId: "abc123",
+    }
+  }
+});
+
+// With custom public detail
+const error = validation("Invalid input", "email", {
+  public: {
+    detail: "Please provide a valid email address",
+  }
 });
 ```
 
@@ -85,13 +118,28 @@ const error = forbidden("admin-panel", "not admin", {
 ```typescript
 import { internal } from "log-bundle";
 
-const error = internal("Database connection failed");
+// Simple usage
+const error = internal("Unexpected error occurred");
 // Returns: ErrorData with 500 status
 
-const error = internal("Failed to process payment", {
-  paymentId: "pay_123",
-  provider: "stripe",
-});
+// Capture original error
+try {
+  await processPayment(paymentId);
+} catch (err) {
+  const error = internal("Failed to process payment", {
+    internal: {
+      cause: err, // Original error for Sentry
+      context: {
+        paymentId: "pay_123",
+        provider: "stripe",
+      },
+      tags: {
+        service: "payment",
+        severity: "critical",
+      }
+    }
+  });
+}
 ```
 
 ### database
@@ -99,13 +147,28 @@ const error = internal("Failed to process payment", {
 ```typescript
 import { database } from "log-bundle";
 
+// Simple usage
 const error = database("Query timeout");
 // Returns: ErrorData with 500 status
 
-const error = database("Connection pool exhausted", {
-  poolSize: 10,
-  activeConnections: 10,
-});
+// Capture original error for Sentry
+try {
+  await db.query("SELECT * FROM users");
+} catch (err) {
+  const error = database("Query failed", {
+    public: {
+      detail: "Unable to fetch user data"
+    },
+    internal: {
+      cause: err, // Original error goes to Sentry only
+      context: {
+        query: "SELECT * FROM users",
+        poolSize: 10,
+        activeConnections: 10,
+      }
+    }
+  });
+}
 ```
 
 ### conflict
@@ -169,15 +232,103 @@ All factory functions return an `ErrorData` object:
 
 ```typescript
 type ErrorData = {
-  type: ErrorType;
-  message: string;
-  title?: string;
-  detail?: string;
-  context?: Record<string, unknown>;
-  validationErrors?: ValidationError[];
-  httpStatus?: number;
-  skipSentry?: boolean;
+  readonly type: ErrorType;
+  readonly message: string; // Internal only
+
+  readonly public?: {
+    title?: string;           // RFC 7807
+    detail?: string;          // RFC 7807
+    instance?: string;        // RFC 7807
+    meta?: Record<string, unknown>; // Public metadata
+    validationErrors?: ValidationError[];
+  };
+
+  readonly internal?: {
+    cause?: Error;            // Original error for Sentry
+    context?: Record<string, unknown>; // Debug context
+    tags?: Record<string, string>; // Sentry tags
+  };
+
+  readonly httpStatus?: number;
+  readonly skipSentry?: boolean;
 };
+```
+
+### Public Data
+Data in `public` is safe to send to end users via HTTP responses. It follows RFC 7807 standards:
+- `title` - Short human-readable summary
+- `detail` - Human-readable explanation specific to this error
+- `instance` - URI reference to this specific error occurrence
+- `meta` - Additional public metadata (e.g., suggestions, links)
+- `validationErrors` - Array of field validation errors
+
+### Internal Data
+Data in `internal` is only for logs and Sentry, never exposed to users:
+- `cause` - Original Error object with full stack trace
+- `context` - Debug information (query params, internal state, etc.)
+- `tags` - Custom tags for Sentry categorization
+
+## Common Patterns
+
+### Wrapping Database Errors
+
+```typescript
+import { database } from "log-bundle";
+
+async function getUser(id: string) {
+  try {
+    return await db.users.findById(id);
+  } catch (err) {
+    throw database("Failed to fetch user", {
+      public: { detail: "Unable to retrieve user data" },
+      internal: {
+        cause: err, // Original error for Sentry
+        context: { userId: id, operation: "findById" }
+      }
+    });
+  }
+}
+```
+
+### Wrapping External API Errors
+
+```typescript
+import { external } from "log-bundle";
+
+async function fetchFromStripe(customerId: string) {
+  try {
+    return await stripe.customers.retrieve(customerId);
+  } catch (err) {
+    throw external("stripe", "Failed to retrieve customer", {
+      public: { detail: "Unable to fetch payment information" },
+      internal: {
+        cause: err,
+        context: { customerId, provider: "stripe" },
+        tags: { service: "payment", provider: "stripe" }
+      }
+    });
+  }
+}
+```
+
+### Validation with Context
+
+```typescript
+import { validation } from "log-bundle";
+
+function validateAge(age: number, requestId: string) {
+  if (age < 18) {
+    return validation("Age must be at least 18", "age", {
+      public: {
+        detail: "You must be 18 years or older to register",
+        meta: { minimumAge: 18, providedAge: age }
+      },
+      internal: {
+        context: { requestId, validationRule: "minimum_age" }
+      }
+    });
+  }
+}
 ```
 
 ## Utility Functions
@@ -195,9 +346,9 @@ const { statusCode, body } = toHttpResponse(error);
 //   type: "/errors/not_found",
 //   title: "Resource Not Found",
 //   status: 404,
-//   detail: "The requested user could not be found",
-//   meta: { resource: "user", resource_id: "123" }
+//   detail: "The requested user could not be found"
 // }
+// Note: Only public data is included, internal context is excluded
 ```
 
 ### Converting to Error Response (RFC 7807)
@@ -205,7 +356,9 @@ const { statusCode, body } = toHttpResponse(error);
 ```typescript
 import { toErrorResponse, notFound } from "log-bundle";
 
-const error = notFound("user", userId);
+const error = notFound("user", userId, {
+  public: { meta: { suggestion: "Check user ID" } }
+});
 const response = toErrorResponse(error, "https://api.example.com");
 
 // response: {
@@ -213,8 +366,9 @@ const response = toErrorResponse(error, "https://api.example.com");
 //   title: "Resource Not Found",
 //   status: 404,
 //   detail: "The requested user could not be found",
-//   meta: { resource: "user", resource_id: "123" }
+//   meta: { suggestion: "Check user ID" }
 // }
+// Note: Only public data is included (meta from public, not internal.context)
 ```
 
 ### Checking Error Status
@@ -238,12 +392,13 @@ import { withContext, notFound } from "log-bundle";
 
 let error = notFound("user", userId);
 
-// Add additional context
+// Add additional internal context (for logs/Sentry)
 error = withContext(error, {
   requestId: "abc123",
   userId: "456",
   timestamp: new Date().toISOString(),
 });
+// This merges into error.internal.context
 ```
 
 ### Overriding HTTP Status
@@ -262,10 +417,12 @@ error = withHttpStatus(error, 410);
 ```typescript
 import { withoutSentry, notFound } from "log-bundle";
 
+// Using utility
 let error = notFound("user", userId);
-
-// Prevent this error from being sent to Sentry
 error = withoutSentry(error);
+
+// Or directly in factory
+const error = notFound("user", userId, { skipSentry: true });
 ```
 
 ## Throwable Errors

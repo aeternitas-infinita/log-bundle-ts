@@ -1,7 +1,7 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import type * as pino from "pino";
 import { sendToSentry } from "../sentry/plugin.js";
-import { createErrorData, shouldSendToSentry, toHttpResponse, toLogObject } from "../../error/error-data.js";
+import { createErrorData, getOriginalError, shouldSendToSentry, toHttpResponse, toLogObject } from "../../error/error-data.js";
 import { ErrorType } from "../../error/error-types.js";
 import { isHttpError, type HttpError } from "../../error/error-helpers.js";
 
@@ -112,9 +112,12 @@ export function createErrorPipe(logger: pino.Logger, options: ErrorPipeOptions =
 
         // Create ErrorData for structured response
         const errorData = createErrorData(errorType, error.message, {
-            context: {
-                ...context,
-                ...requestContext,
+            internal: {
+                cause: error, // Original error for Sentry
+                context: {
+                    ...context,
+                    ...requestContext,
+                },
             },
             httpStatus: statusCode,
             skipSentry,
@@ -136,10 +139,11 @@ export function createErrorPipe(logger: pino.Logger, options: ErrorPipeOptions =
 
         // Send to Sentry if applicable
         if (shouldSendToSentry(errorData) && !skipSentry) {
+            const originalError = getOriginalError(errorData) ?? error;
             sendToSentry(
                 "error",
                 {
-                    err: error,
+                    err: originalError,
                     ...toLogObject(errorData),
                 },
                 error.message,

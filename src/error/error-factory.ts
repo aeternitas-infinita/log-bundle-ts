@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ErrorData } from "./error-data.js";
+import type { CreateErrorDataOptions, ErrorData } from "./error-data.js";
 import * as factories from "./factories.js";
 
 /**
@@ -24,78 +24,144 @@ export class ErrorFactory {
     /**
      * Creates a NOT_FOUND error (404) with bound context
      */
-    notFound(resource: string, id?: unknown, additionalContext?: Record<string, any>): ErrorData {
-        return factories.notFound(resource, id, { ...this.context, ...additionalContext });
+    notFound(resource: string, id?: unknown, options?: CreateErrorDataOptions): ErrorData {
+        return factories.notFound(resource, id, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates a VALIDATION error (400) with bound context
      */
-    validation(message: string, field?: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.validation(message, field, { ...this.context, ...additionalContext });
+    validation(message: string, field?: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.validation(message, field, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates a DATABASE error (500) with bound context
      */
-    database(message: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.database(message, { ...this.context, ...additionalContext });
+    database(message: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.database(message, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates an INTERNAL error (500) with bound context
      */
-    internal(message: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.internal(message, { ...this.context, ...additionalContext });
+    internal(message: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.internal(message, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates a FORBIDDEN error (403) with bound context
      */
-    forbidden(resource: string, reason?: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.forbidden(resource, reason, { ...this.context, ...additionalContext });
+    forbidden(resource: string, reason?: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.forbidden(resource, reason, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates an UNAUTHORIZED error (401) with bound context
      */
-    unauthorized(reason?: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.unauthorized(reason, { ...this.context, ...additionalContext });
+    unauthorized(reason?: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.unauthorized(reason, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates a BAD_INPUT error (400) with bound context
      */
-    badInput(message: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.badInput(message, { ...this.context, ...additionalContext });
+    badInput(message: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.badInput(message, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates a CONFLICT error (409) with bound context
      */
-    conflict(resource: string, reason?: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.conflict(resource, reason, { ...this.context, ...additionalContext });
+    conflict(resource: string, reason?: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.conflict(resource, reason, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates an EXTERNAL error (502) with bound context
      */
-    external(service: string, message: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.external(service, message, { ...this.context, ...additionalContext });
+    external(service: string, message: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.external(service, message, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates a TIMEOUT error (504) with bound context
      */
-    timeout(operation: string, duration?: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.timeout(operation, duration, { ...this.context, ...additionalContext });
+    timeout(operation: string, duration?: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.timeout(operation, duration, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**
      * Creates a BUSY error (503) with bound context
      */
-    busy(message: string, additionalContext?: Record<string, any>): ErrorData {
-        return factories.busy(message, { ...this.context, ...additionalContext });
+    busy(message: string, options?: CreateErrorDataOptions): ErrorData {
+        return factories.busy(message, {
+            ...options,
+            internal: {
+                ...options?.internal,
+                context: { ...this.context, ...options?.internal?.context },
+            },
+        });
     }
 
     /**

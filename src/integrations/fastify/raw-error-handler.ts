@@ -136,7 +136,9 @@ export function createRawFastifyErrorHandler(
             // Error is HttpError - convert to ErrorData
             const { createErrorData } = await import("../../error/error-data.js");
             errorData = createErrorData(error.errorType, error.message, {
-                context: error.context,
+                internal: {
+                    context: error.context,
+                },
                 skipSentry: error.skipSentry,
                 httpStatus: error.statusCode,
             });

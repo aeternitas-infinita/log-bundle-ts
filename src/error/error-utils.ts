@@ -59,10 +59,10 @@ export function extractErrorData(error: ErrorData): {
         type: error.type,
         message: error.message,
         statusCode: getHttpStatus(error),
-        title: error.title,
-        detail: error.detail,
-        context: error.context,
-        validationErrors: error.validationErrors,
+        title: error.public?.title,
+        detail: error.public?.detail,
+        context: error.internal?.context,
+        validationErrors: error.public?.validationErrors,
         shouldSendToSentry: shouldSendToSentry(error),
     };
 }
@@ -91,17 +91,19 @@ export function getEssentialErrorData(error: ErrorData): {
 }
 
 /**
- * Get error context metadata only
+ * Get error context metadata only (internal context for debugging)
  *
  * @example
  * ```typescript
- * const error = notFound("user", userId, { requestId: "123", url: "/api/users/456" });
+ * const error = notFound("user", userId, {
+ *   internal: { context: { requestId: "123", url: "/api/users/456" } }
+ * });
  * const context = getErrorContext(error);
  * // Returns: { resource: "user", resource_id: "456", requestId: "123", url: "/api/users/456" }
  * ```
  */
 export function getErrorContext(error: ErrorData): Record<string, unknown> | undefined {
-    return error.context;
+    return error.internal?.context;
 }
 
 /**
@@ -115,7 +117,7 @@ export function getErrorContext(error: ErrorData): Record<string, unknown> | und
  * ```
  */
 export function getValidationErrors(error: ErrorData): { field?: string; message: string }[] | undefined {
-    return error.validationErrors;
+    return error.public?.validationErrors;
 }
 
 /**
@@ -167,22 +169,25 @@ export function isServerError(error: ErrorData): boolean {
 }
 
 /**
- * Merge additional context into an ErrorData object
- * Returns a new ErrorData object with merged context
+ * Merge additional context into an ErrorData object (internal context)
+ * Returns a new ErrorData object with merged internal context
  *
  * @example
  * ```typescript
  * const error = notFound("user", userId);
  * const enriched = withContext(error, { requestId: "123", url: "/api/users" });
- * // Error now includes requestId and url in context
+ * // Error now includes requestId and url in internal context
  * ```
  */
 export function withContext(error: ErrorData, additionalContext: Record<string, unknown>): ErrorData {
     return {
         ...error,
-        context: {
-            ...error.context,
-            ...additionalContext,
+        internal: {
+            ...error.internal,
+            context: {
+                ...error.internal?.context,
+                ...additionalContext,
+            },
         },
     };
 }

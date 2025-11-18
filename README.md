@@ -103,25 +103,40 @@ logger.errorWithSentry(
 
 ### Error Handling
 
-Use factory functions to create structured errors:
+Use factory functions to create structured errors with clear separation of public (user-facing) and internal (logs/Sentry) data:
 
 ```typescript
-import { notFound, validation, internal, unauthorized } from "log-bundle";
+import { notFound, validation, internal, database } from "log-bundle";
 
-// 404 Not Found
+// Simple errors - basic usage
 const error = notFound("user", userId);
-
-// 400 Validation Error
 const error = validation("Email is required", "email");
 
-// 500 Internal Error
-const error = internal("Database connection failed");
+// Add internal context (for logs/Sentry only)
+const error = notFound("user", userId, {
+  internal: { context: { requestId: "abc123", ip: "192.168.1.1" } }
+});
 
-// 401 Unauthorized
-const error = unauthorized("Token expired");
+// Add public metadata (sent to users)
+const error = notFound("user", userId, {
+  public: { meta: { suggestion: "Check the user ID format" } }
+});
+
+// Capture original errors for Sentry
+try {
+  await db.query();
+} catch (err) {
+  const error = database("Query failed", {
+    public: { detail: "Unable to fetch data" },
+    internal: {
+      cause: err, // Original error goes to Sentry only
+      context: { query: "SELECT * FROM users", params: { id: userId } }
+    }
+  });
+}
 ```
 
-Add context to errors:
+Add context using utilities:
 
 ```typescript
 import { notFound, withContext } from "log-bundle";
@@ -130,7 +145,7 @@ let error = notFound("user", userId);
 error = withContext(error, {
   requestId: "abc123",
   timestamp: new Date().toISOString(),
-});
+}); // Adds to internal.context
 ```
 
 ### Fastify Integration
@@ -168,11 +183,28 @@ app.get("/users/:id", async (request, reply) => {
   const user = await db.users.findById(request.params.id);
 
   if (!user) {
-    // Error includes requestId, url, method, ip automatically
+    // Error automatically includes requestId, url, method, ip in internal context
     return reply.code(404).send(errors.notFound("user", request.params.id));
   }
 
   return user;
+});
+
+// You can also pass additional options
+app.post("/users", async (request, reply) => {
+  const errors = ErrorFactory.forRequest(request);
+
+  try {
+    const user = await db.users.create(request.body);
+    return user;
+  } catch (err) {
+    return reply.code(500).send(
+      errors.database("Failed to create user", {
+        internal: { cause: err }, // Original error for Sentry
+        public: { detail: "Unable to create user account" }
+      })
+    );
+  }
 });
 ```
 
@@ -207,8 +239,12 @@ Skip Sentry for specific errors:
 ```typescript
 import { withoutSentry, notFound } from "log-bundle";
 
+// Using utility
 let error = notFound("user", userId);
 error = withoutSentry(error);
+
+// Or directly in factory
+const error = notFound("user", userId, { skipSentry: true });
 ```
 
 ### Process Error Handlers
@@ -255,10 +291,29 @@ createLogger(config?: LoggerConfig, transport?: DestinationStream, addSource?: b
 ### Error Factories
 
 ```typescript
-notFound(resource: string, id?: unknown, context?: Record<string, any>): ErrorData
-validation(message: string, field?: string, context?: Record<string, any>): ErrorData
-internal(message: string, context?: Record<string, any>): ErrorData
+notFound(resource: string, id?: unknown, options?: CreateErrorDataOptions): ErrorData
+validation(message: string, field?: string, options?: CreateErrorDataOptions): ErrorData
+database(message: string, options?: CreateErrorDataOptions): ErrorData
+internal(message: string, options?: CreateErrorDataOptions): ErrorData
 // ... and more
+
+// CreateErrorDataOptions:
+type CreateErrorDataOptions = {
+  public?: {
+    title?: string;
+    detail?: string;
+    instance?: string;
+    meta?: Record<string, unknown>;
+    validationErrors?: ValidationError[];
+  };
+  internal?: {
+    cause?: Error;
+    context?: Record<string, unknown>;
+    tags?: Record<string, string>;
+  };
+  httpStatus?: number;
+  skipSentry?: boolean;
+}
 ```
 
 ### Error Utilities
