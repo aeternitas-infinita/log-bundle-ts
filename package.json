@@ -56,7 +56,6 @@
   },
   "dependencies": {
     "@sentry/node": "^10.22.0",
-    "@sentry/profiling-node": "^10.25.0",
     "pino": "^10.1.0",
     "pino-pretty": "^13.1.2"
   },
