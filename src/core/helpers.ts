@@ -1,5 +1,6 @@
 // Cache process.cwd() as it doesn't change during runtime
 const CWD = process.cwd();
+const CWD_LENGTH = CWD.length;
 
 // Regex patterns compiled once for better performance
 const STACK_PATTERN_WITH_PARENS = /at .* \((.+):(\d+):(\d+)\)/;
@@ -29,16 +30,29 @@ export function getSource(): string {
             continue;
         }
 
-        const match = (STACK_PATTERN_WITH_PARENS.exec(line)) ?? (STACK_PATTERN_WITHOUT_PARENS.exec(line));
+        const match = STACK_PATTERN_WITH_PARENS.exec(line) ?? STACK_PATTERN_WITHOUT_PARENS.exec(line);
         if (match) {
             const [, filePath, lineNumber] = match;
             if (filePath && lineNumber) {
-                // Optimize string replacements
-                const relativePath = filePath
-                    .replace(/^file:\/\/\//, "")
-                    .replace(CWD, "")
-                    .replace(/\\/g, "/")
-                    .replace(/^\//, "");
+                // Optimize string replacements with single pass
+                let relativePath = filePath;
+
+                // Remove file:/// prefix if present
+                if (relativePath.startsWith("file:///")) {
+                    relativePath = relativePath.slice(8);
+                }
+
+                // Remove CWD prefix if present
+                if (relativePath.startsWith(CWD)) {
+                    relativePath = relativePath.slice(CWD_LENGTH);
+                }
+
+                // Normalize path separators and remove leading slash
+                if (relativePath.startsWith("\\") || relativePath.startsWith("/")) {
+                    relativePath = relativePath.slice(1);
+                }
+                relativePath = relativePath.replace(/\\/g, "/");
+
                 return `${relativePath}:${lineNumber}`;
             }
         }

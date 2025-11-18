@@ -2,11 +2,11 @@
 export { logConfig } from "./core/config.js";
 export type { LogBundleConfig } from "./core/config.js";
 export { createLogger } from "./core/logger.js";
-export type { LoggerConfig } from "./core/logger.js";
-export { createLoggerWithSentry } from "./core/logger-with-sentry.js";
-export type { LoggerWithSentry } from "./core/logger-with-sentry.js";
+export type { LoggerConfig, LoggerWithSentry } from "./core/logger.js";
 
-// Sentry utilities (Note: Initialize Sentry manually before importing this library)
+// Sentry utilities
+export { initSentryForFastify } from "./integrations/sentry/init.js";
+export type { SentryInitConfig } from "./integrations/sentry/init.js";
 export { isSentryInitialized, sendToSentry } from "./integrations/sentry/plugin.js";
 export type { SentrySendOptions } from "./integrations/sentry/plugin.js";
 
@@ -15,6 +15,10 @@ export { createFastifyErrorHandler } from "./integrations/fastify/error-handler.
 export type { FastifyErrorHandlerOptions } from "./integrations/fastify/error-handler.js";
 export { createErrorPipe } from "./integrations/fastify/error-pipe.js";
 export type { ErrorPipeOptions } from "./integrations/fastify/error-pipe.js";
+
+// Fastify integration (raw/low-level for legacy projects)
+export { createRawFastifyErrorHandler } from "./integrations/fastify/raw-error-handler.js";
+export type { RawErrorHandlerOptions } from "./integrations/fastify/raw-error-handler.js";
 
 // Process error handling
 export { setupProcessErrorHandlers } from "./integrations/process-error-handler.js";
@@ -30,6 +34,7 @@ export {
     database,
     DEFAULT_HTTP_STATUS_MAP,
     errorConfig,
+    ErrorFactory,
     ErrorType,
     external,
     forbidden,
@@ -47,6 +52,21 @@ export {
     validation,
 } from "./error/index.js";
 export type { ErrorResponse, SuccessResponse, ValidationError } from "./error/index.js";
+
+// Error utilities (low-level API for custom error handling in legacy projects)
+export {
+    extractErrorData,
+    getEssentialErrorData,
+    getErrorContext,
+    getValidationErrors,
+    isClientError,
+    isErrorData,
+    isErrorType,
+    isServerError,
+    withContext,
+    withHttpStatus,
+    withoutSentry,
+} from "./error/index.js";
 
 // Default export
 import { createLogger } from "./core/logger.js";

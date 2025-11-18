@@ -1,19 +1,16 @@
 # log-bundle
 
+Production-ready logging and error handling library for Node.js with Pino, Sentry, and Fastify integration.
+
 ## Features
 
-- **High-Performance Logging**: Built on Pino for structured, fast JSON logging
-- **Sentry Integration**: Automatic error tracking with configurable reporting levels
-- **Fastify Support**: Drop-in error handlers and error response pipes
-- **Type-Safe**: Full TypeScript support with strict type checking
-- **Flexible Error Handling**: Lightweight error data objects with HTTP status mapping
-- **Zero Dependencies in Production**: Peer dependencies model keeps your bundle lean
-- **ESM Only**: Modern ES modules for better tree-shaking and performance
-
-## Requirements
-
-- Node.js >= 20.0.0
-- TypeScript >= 5.0.0
+- **Structured Logging** - Built on Pino for high-performance JSON logging
+- **Error Handling** - RFC 7807 compliant error responses with predefined error types
+- **Sentry Integration** - Automatic error tracking and performance monitoring
+- **Fastify Support** - First-class Fastify middleware and error handlers
+- **Type Safety** - Full TypeScript support with comprehensive types
+- **Zero Config** - Sensible defaults that work out of the box
+- **Production Ready** - Optimized for performance and reliability
 
 ## Installation
 
@@ -21,417 +18,320 @@
 npm install log-bundle
 ```
 
-### Peer Dependencies
-
-Install the dependencies you need based on your use case:
+Optional peer dependencies:
 
 ```bash
-# Core logging only
-npm install pino pino-pretty date-fns-tz
-
-# With Sentry integration
-npm install @sentry/node @sentry/profiling-node
-
-# With Fastify support
-npm install fastify
+npm install @sentry/node fastify
 ```
 
 ## Quick Start
 
-### Basic Logger
+```typescript
+import { initSentryForFastify, createLogger, setupProcessErrorHandlers, createErrorPipe, notFound } from "log-bundle";
+import fastify from "fastify";
+
+// 1. Initialize Sentry (optional, must be first)
+if (process.env.SENTRY_DSN) {
+  initSentryForFastify({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+  });
+}
+
+// 2. Create logger
+const logger = createLogger({
+  level: process.env.LOG_LEVEL || "info",
+});
+
+// 3. Setup process error handlers
+setupProcessErrorHandlers(logger);
+
+// 4. Create Fastify app
+const app = fastify({ logger });
+
+// 5. Define routes
+app.get("/users/:id", async (request, reply) => {
+  const user = await db.users.findById(request.params.id);
+
+  if (!user) {
+    return reply.code(404).send(notFound("user", request.params.id));
+  }
+
+  return user;
+});
+
+// 6. Setup error handler (must be last)
+app.setErrorHandler(
+  createErrorPipe(logger, {
+    environment: process.env.NODE_ENV,
+  })
+);
+
+// 7. Start server
+await app.listen({ port: 3000 });
+```
+
+## Core Concepts
+
+### Logging
+
+Create a logger with Pino integration:
 
 ```typescript
 import { createLogger } from "log-bundle";
 
 const logger = createLogger({
-    name: "my-app",
-    level: "info",
-    environment: "production",
+  level: "info",
 });
 
 logger.info("Application started");
-logger.error({ err: new Error("Something went wrong") }, "Error occurred");
+logger.warn({ userId: "123" }, "Suspicious activity");
+logger.error(error, "Failed to process request");
 ```
 
-### Logger with Sentry
+Log and send to Sentry simultaneously:
 
 ```typescript
-import { createLoggerWithSentry, logConfig } from "log-bundle";
-import * as Sentry from "@sentry/node";
+logger.errorWithSentry(
+  { userId: "123", action: "payment" },
+  "Payment processing failed"
+);
+```
 
-// Initialize Sentry first
-Sentry.init({
-    dsn: "your-sentry-dsn",
-    environment: "production",
+### Error Handling
+
+Use factory functions to create structured errors:
+
+```typescript
+import { notFound, validation, internal, unauthorized } from "log-bundle";
+
+// 404 Not Found
+const error = notFound("user", userId);
+
+// 400 Validation Error
+const error = validation("Email is required", "email");
+
+// 500 Internal Error
+const error = internal("Database connection failed");
+
+// 401 Unauthorized
+const error = unauthorized("Token expired");
+```
+
+Add context to errors:
+
+```typescript
+import { notFound, withContext } from "log-bundle";
+
+let error = notFound("user", userId);
+error = withContext(error, {
+  requestId: "abc123",
+  timestamp: new Date().toISOString(),
 });
-
-// Enable Sentry integration globally
-logConfig.enableSentry = true;
-
-const logger = createLoggerWithSentry({
-    name: "my-app",
-    level: "info",
-    environment: "production",
-});
-
-// Errors are automatically sent to Sentry
-logger.errorWithSentry({ err: new Error("Critical error") }, "This will be tracked in Sentry");
 ```
 
 ### Fastify Integration
 
+The middleware order matters. Here's the correct setup:
+
 ```typescript
-import Fastify from "fastify";
-import { createLogger, createFastifyErrorHandler, createErrorPipe } from "log-bundle";
+import fastify from "fastify";
+import { createLogger, createErrorPipe } from "log-bundle";
 
-const logger = createLogger({
-    name: "my-api",
-    level: "info",
-    environment: "production",
-});
+const app = fastify({ logger: createLogger() });
 
-const fastify = Fastify({ logger });
+// 1. Register plugins
+await app.register(import("@fastify/cors"));
 
-// Global error handler
-fastify.setErrorHandler(
-    createFastifyErrorHandler({
-        logger,
-        environment: "production",
-    })
+// 2. Register routes
+app.get("/", async () => ({ hello: "world" }));
+
+// 3. Register error handler (MUST BE LAST)
+app.setErrorHandler(
+  createErrorPipe(logger, {
+    environment: process.env.NODE_ENV,
+  })
 );
+```
 
-// Error response pipe for route handlers
-fastify.get("/users/:id", async (request, reply) => {
-    const errorPipe = createErrorPipe({ reply, logger });
+Use ErrorFactory for automatic request context:
 
-    const user = await getUserById(request.params.id).catch(errorPipe);
+```typescript
+import { ErrorFactory } from "log-bundle";
 
-    if (!user) {
-        return errorPipe(notFound("User not found"));
-    }
+app.get("/users/:id", async (request, reply) => {
+  const errors = ErrorFactory.forRequest(request);
 
-    return { data: user };
+  const user = await db.users.findById(request.params.id);
+
+  if (!user) {
+    // Error includes requestId, url, method, ip automatically
+    return reply.code(404).send(errors.notFound("user", request.params.id));
+  }
+
+  return user;
 });
 ```
 
-## Core Concepts
+### Sentry Integration
 
-### Error Data Objects
-
-The library uses lightweight error data objects instead of throwable errors for better control flow:
+Initialize Sentry at the top of your entry file:
 
 ```typescript
-import { createErrorData, ErrorType, notFound, validation, internal } from "log-bundle";
+import { initSentryForFastify } from "log-bundle";
 
-// Create custom error data
-const error = createErrorData({
-    type: ErrorType.NOT_FOUND,
-    message: "Resource not found",
-    details: { resourceId: "123" },
+initSentryForFastify({
+  dsn: process.env.SENTRY_DSN!,
+  environment: process.env.NODE_ENV!,
+  enableProfiling: true,
+  tracesSampleRate: 0.1,
 });
-
-// Use factory functions
-const notFoundError = notFound("User not found");
-const validationError = validation("Invalid email format", {
-    field: "email",
-    value: "invalid-email",
-});
-const internalError = internal("Database connection failed");
 ```
 
-### Error Types and HTTP Status Mapping
-
-Built-in error types with automatic HTTP status code mapping:
+Control what gets sent to Sentry:
 
 ```typescript
-import { ErrorType, getHttpStatus } from "log-bundle";
+import { errorConfig } from "log-bundle";
 
-// Error types
-ErrorType.VALIDATION; // 400 Bad Request
-ErrorType.UNAUTHORIZED; // 401 Unauthorized
-ErrorType.FORBIDDEN; // 403 Forbidden
-ErrorType.NOT_FOUND; // 404 Not Found
-ErrorType.CONFLICT; // 409 Conflict
-ErrorType.INTERNAL; // 500 Internal Server Error
-ErrorType.EXTERNAL; // 502 Bad Gateway
-ErrorType.TIMEOUT; // 504 Gateway Timeout
-ErrorType.DATABASE; // 500 Internal Server Error
+// Only send specific status codes
+errorConfig.setSentryStatusCodes([500, 502, 503, 504]);
+```
+
+Skip Sentry for specific errors:
+
+```typescript
+import { withoutSentry, notFound } from "log-bundle";
+
+let error = notFound("user", userId);
+error = withoutSentry(error);
 ```
 
 ### Process Error Handlers
 
-Set up global handlers for unhandled errors:
+Catch uncaught exceptions and rejections:
 
 ```typescript
-import { setupProcessErrorHandlers, createLogger } from "log-bundle";
+import { setupProcessErrorHandlers } from "log-bundle";
 
-const logger = createLogger({
-    name: "my-app",
-    level: "info",
-    environment: "production",
-});
-
-setupProcessErrorHandlers({
-    logger,
-    exitOnUncaughtException: true,
-    exitOnUnhandledRejection: false,
+setupProcessErrorHandlers(logger, {
+  exitOnUncaughtException: process.env.NODE_ENV === "production",
+  exitOnUnhandledRejection: false,
+  onBeforeExit: async () => {
+    await db.close();
+    await cache.disconnect();
+  },
 });
 ```
 
-## Configuration
+## Available Error Types
 
-### Logger Configuration
-
-```typescript
-type LoggerConfig = {
-    name: string; // Application name
-    level?: string; // Log level: trace, debug, info, warn, error, fatal
-    environment?: string; // Environment: development, production, test
-    pretty?: boolean; // Enable pretty printing (auto-enabled in development)
-    timezone?: string; // IANA timezone (default: UTC)
-    destination?: string; // Log file path (optional)
-};
-```
-
-### Sentry Configuration
-
-#### Global Sentry Control
-
-Enable or disable Sentry integration globally using the `logConfig`:
-
-```typescript
-import { logConfig } from "log-bundle";
-
-// Enable Sentry integration globally (default: false)
-logConfig.enableSentry = true;
-
-// Disable Sentry integration at runtime
-logConfig.enableSentry = false;
-```
-
-**Note**: Sentry is **disabled by default**. You must explicitly set `logConfig.enableSentry = true` after initializing Sentry to start sending logs.
-
-#### Error-Level Sentry Control
-
-Control which error types are sent to Sentry:
-
-```typescript
-import { errorConfig, shouldSendToSentry, ErrorType } from "log-bundle";
-
-// Configure Sentry reporting by error type
-errorConfig.sentryReportLevels = {
-    [ErrorType.INTERNAL]: true,
-    [ErrorType.DATABASE]: true,
-    [ErrorType.EXTERNAL]: false,
-    [ErrorType.VALIDATION]: false,
-    [ErrorType.NOT_FOUND]: false,
-};
-
-// Check if error should be sent to Sentry
-const error = internal("Database connection failed");
-if (shouldSendToSentry(error.type)) {
-    // Send to Sentry
-}
-```
-
-## Best Practices
-
-### 1. Use Environment-Specific Configuration
-
-```typescript
-const logger = createLogger({
-    name: "my-app",
-    level: process.env.LOG_LEVEL || "info",
-    environment: process.env.NODE_ENV || "development",
-    pretty: process.env.NODE_ENV !== "production",
-});
-```
-
-### 2. Structure Your Log Context
-
-```typescript
-// Good: Include relevant context
-logger.info(
-    {
-        userId: user.id,
-        action: "login",
-        ip: request.ip,
-    },
-    "User logged in"
-);
-
-// Avoid: Logging sensitive data
-logger.info({ password: "secret123" }, "Login attempt"); // DON'T DO THIS
-```
-
-### 3. Use Error Data Objects for Predictable Control Flow
-
-```typescript
-// Good: Explicit error handling
-async function getUser(id: string) {
-    const user = await db.findUser(id);
-    if (!user) {
-        return notFound("User not found");
-    }
-    return user;
-}
-
-// Then handle in your route
-const result = await getUser(id);
-if (isHttpError(result)) {
-    return errorPipe(result);
-}
-return { data: result };
-```
-
-### 4. Configure Sentry Thresholds Appropriately
-
-```typescript
-import { logConfig, errorConfig, ErrorType } from "log-bundle";
-
-// Enable Sentry in production only
-logConfig.enableSentry = process.env.NODE_ENV === "production";
-
-// Only send critical errors to Sentry to avoid noise
-errorConfig.sentryReportLevels = {
-    [ErrorType.INTERNAL]: true, // Server bugs
-    [ErrorType.DATABASE]: true, // Data layer issues
-    [ErrorType.EXTERNAL]: false, // Third-party API failures (too noisy)
-    [ErrorType.VALIDATION]: false, // User input errors (expected)
-    [ErrorType.NOT_FOUND]: false, // Expected 404s
-};
-```
-
-### 5. Use Child Loggers for Request Context
-
-```typescript
-fastify.addHook("onRequest", async (request, reply) => {
-    request.log = logger.child({
-        requestId: request.id,
-        method: request.method,
-        url: request.url,
-    });
-});
-```
-
-### 6. Handle Errors at the Right Level
-
-```typescript
-// Application-level errors
-fastify.setErrorHandler(createFastifyErrorHandler({ logger, environment: "production" }));
-
-// Process-level errors
-setupProcessErrorHandlers({
-    logger,
-    exitOnUncaughtException: true,
-    exitOnUnhandledRejection: process.env.NODE_ENV === "production",
-});
-```
+| Function | HTTP Status | Use Case |
+|----------|-------------|----------|
+| `notFound(resource, id)` | 404 | Resource not found |
+| `validation(message, field)` | 400 | Input validation failure |
+| `badInput(message)` | 400 | Malformed request data |
+| `unauthorized(reason)` | 401 | Authentication required |
+| `forbidden(resource, reason)` | 403 | Permission denied |
+| `conflict(resource, reason)` | 409 | Resource conflict |
+| `internal(message)` | 500 | Internal server error |
+| `database(message)` | 500 | Database operation failure |
+| `external(service, message)` | 502 | External service failure |
+| `timeout(operation, duration)` | 504 | Operation timeout |
+| `busy(message)` | 503 | Service unavailable |
 
 ## API Reference
 
-### Global Configuration
-
-#### `logConfig: LogBundleConfig`
-
-Global configuration object for controlling library behavior.
+### Logger
 
 ```typescript
-type LogBundleConfig = {
-    enableSentry: boolean; // Enable/disable Sentry integration globally (default: false)
-};
+createLogger(config?: LoggerConfig, transport?: DestinationStream, addSource?: boolean): LoggerWithSentry
 ```
-
-**Example:**
-```typescript
-import { logConfig } from "log-bundle";
-
-logConfig.enableSentry = true;
-```
-
-### Core Functions
-
-#### `createLogger(config: LoggerConfig)`
-
-Creates a Pino logger instance with the specified configuration.
-
-#### `createLoggerWithSentry(config: LoggerConfig)`
-
-Creates a logger with automatic Sentry integration. Requires Sentry to be initialized first and `logConfig.enableSentry` to be set to `true`.
 
 ### Error Factories
 
-All factory functions return an `ErrorData` object:
+```typescript
+notFound(resource: string, id?: unknown, context?: Record<string, any>): ErrorData
+validation(message: string, field?: string, context?: Record<string, any>): ErrorData
+internal(message: string, context?: Record<string, any>): ErrorData
+// ... and more
+```
 
-- `validation(message, details?)` - 400 Bad Request
-- `unauthorized(message, details?)` - 401 Unauthorized
-- `forbidden(message, details?)` - 403 Forbidden
-- `notFound(message, details?)` - 404 Not Found
-- `conflict(message, details?)` - 409 Conflict
-- `internal(message, details?)` - 500 Internal Server Error
-- `external(message, details?)` - 502 Bad Gateway
-- `timeout(message, details?)` - 504 Gateway Timeout
-- `database(message, details?)` - 500 Internal Server Error
-
-### Fastify Integration
-
-#### `createFastifyErrorHandler(options)`
-
-Creates a Fastify error handler that processes both ErrorData objects and standard Error instances.
-
-#### `createErrorPipe(options)`
-
-Creates an error pipe function for route handlers that automatically logs and responds to errors.
-
-### Utility Functions
-
-#### `isHttpError(value: unknown): value is HttpError`
-
-Type guard to check if a value is an HttpError.
-
-#### `getHttpStatus(type: ErrorType): number`
-
-Returns the HTTP status code for an error type.
-
-#### `toHttpResponse(error: ErrorData)`
-
-Converts an ErrorData object to an HTTP response object.
-
-#### `shouldSendToSentry(type: ErrorType): boolean`
-
-Checks if an error type should be reported to Sentry.
-
-## Performance Considerations
-
-1. **Pino's Speed**: Pino is one of the fastest Node.js loggers, with minimal performance overhead
-2. **Structured Logging**: JSON logs are machine-readable and easier to query in log aggregation tools
-3. **Lazy Evaluation**: Log objects are only serialized if the log level is enabled
-4. **Async Logging**: Pino uses async operations to minimize I/O blocking
-5. **Tree-Shaking**: ESM modules allow bundlers to remove unused code
-
-## TypeScript
-
-This library is written in TypeScript and provides full type definitions. All exports are fully typed.
+### Error Utilities
 
 ```typescript
-import type {
-    LogBundleConfig,
-    LoggerConfig,
-    ErrorData,
-    HttpError,
-    FastifyErrorHandlerOptions,
-} from "log-bundle";
+toHttpResponse(error: ErrorData): { statusCode: number; body: ErrorResponse }
+toErrorResponse(error: ErrorData, baseUrl?: string): ErrorResponse
+withContext(error: ErrorData, context: Record<string, unknown>): ErrorData
+withHttpStatus(error: ErrorData, statusCode: number): ErrorData
+withoutSentry(error: ErrorData): ErrorData
+isClientError(error: ErrorData): boolean
+isServerError(error: ErrorData): boolean
 ```
+
+### Fastify Handlers
+
+```typescript
+createErrorPipe(logger: Logger, options?: ErrorPipeOptions): FastifyErrorHandler
+createFastifyErrorHandler(logger: Logger, options?: FastifyErrorHandlerOptions): FastifyErrorHandler
+```
+
+### Sentry
+
+```typescript
+initSentryForFastify(config: SentryInitConfig): void
+isSentryInitialized(): boolean
+sendToSentry(level: Level, logObj: any, message: string, options?: SentrySendOptions): void
+```
+
+### Process Handlers
+
+```typescript
+setupProcessErrorHandlers(logger: Logger, options?: ProcessErrorHandlerOptions): void
+```
+
+## Documentation
+
+- [Getting Started](./docs/getting-started.md) - Detailed setup guide
+- [Error Handling](./docs/error-handling.md) - Complete error handling guide
+- [Fastify Integration](./docs/fastify-integration.md) - Fastify middleware order and best practices
+- [Sentry Integration](./docs/sentry-integration.md) - Sentry configuration and security
+
+## Examples
+
+See the [examples](./examples) directory for complete working examples:
+
+- Basic setup with Fastify
+- Error handling patterns
+- Sentry integration
+- Advanced configuration
+
+## Requirements
+
+- Node.js >= 20.0.0
+- TypeScript >= 5.0 (for TypeScript projects)
+
+## Performance
+
+log-bundle is optimized for production use:
+
+- **Zero overhead** when features are disabled
+- **Lazy initialization** of expensive resources
+- **Native Date methods** for timestamp generation (no external dependencies)
+- **Pre-compiled regexes** and cached values
+- **Optimized string operations** in hot paths
+
+## Contributing
+
+Contributions are welcome! Please read the [contributing guidelines](./CONTRIBUTING.md) before submitting PRs.
 
 ## License
 
 MIT
 
-## Contributing
+## Author
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines.
+aeternitas-infinita
 
-## Support
+## Repository
 
-- Issues: <https://github.com/aeternitas-infinita/log-bundle-ts/issues>
-- Discussions: <https://github.com/aeternitas-infinita/log-bundle-ts/discussions>
+https://github.com/aeternitas-infinita/log-bundle-ts

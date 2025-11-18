@@ -6,7 +6,6 @@ import { type ErrorType } from "./error-types.js";
 class ErrorConfig {
     private static instance: ErrorConfig;
 
-    private sentryEnabledFlag = false;
     private sentryStatusCodes: number[] = [500, 501, 502, 503, 504, 505, 506, 507, 508, 510, 511];
     private customStatusMap = new Map<ErrorType, number>();
     private customErrorTypes = new Map<string, number>();
@@ -17,21 +16,6 @@ class ErrorConfig {
     static getInstance(): ErrorConfig {
         ErrorConfig.instance ??= new ErrorConfig();
         return ErrorConfig.instance;
-    }
-
-    /**
-     * Enable or disable Sentry globally for error handling
-     * Default: false
-     */
-    setSentryEnabled(enabled: boolean): void {
-        this.sentryEnabledFlag = enabled;
-    }
-
-    /**
-     * Check if Sentry is enabled
-     */
-    isSentryEnabled(): boolean {
-        return this.sentryEnabledFlag;
     }
 
     /**
@@ -65,7 +49,7 @@ class ErrorConfig {
      * Check if a status code should be sent to Sentry
      */
     shouldSendToSentry(statusCode: number): boolean {
-        return this.sentryEnabledFlag && this.sentryStatusCodes.includes(statusCode);
+        return this.sentryStatusCodes.includes(statusCode);
     }
 
     /**
@@ -123,7 +107,6 @@ class ErrorConfig {
         this.customStatusMap.clear();
         this.customErrorTypes.clear();
         this.sentryStatusCodes = [500, 501, 502, 503, 504, 505, 506, 507, 508, 510, 511];
-        this.sentryEnabledFlag = false;
     }
 }
 
