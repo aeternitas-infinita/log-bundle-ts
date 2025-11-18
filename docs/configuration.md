@@ -114,8 +114,25 @@ errorConfig.setCustomStatusMap({
   [ErrorType.BUSY]: 429, // Too Many Requests
 });
 
-// Configure which status codes go to Sentry
-errorConfig.setSentryStatusCodes([500, 502, 503, 504]);
+// Configure which status codes go to Sentry (using ranges)
+// Default: [[500, 599]] (all 5xx errors)
+
+// Send all 5xx errors (default)
+errorConfig.setSentryStatusRules([[500, 599]]);
+
+// Send all 4xx and 5xx errors
+errorConfig.setSentryStatusRules([[400, 499], [500, 599]]);
+
+// Send specific status codes only
+errorConfig.setSentryStatusRules([500, 502, 503, 504]);
+
+// Send all 5xx except proxy/gateway errors
+errorConfig.setSentryStatusRules([
+  { range: [500, 599], exclude: [502, 503, 504] }
+]);
+
+// Mix ranges and specific codes (e.g., rate limits + all 5xx)
+errorConfig.setSentryStatusRules([429, [500, 599]]);
 
 // Register custom error types
 errorConfig.registerErrorType("rate_limited", 429);

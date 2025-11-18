@@ -32,8 +32,24 @@ export type ErrorPipeOptions = {
 
 /**
  * Sanitizes headers by redacting sensitive ones
+ * Optimized to avoid unnecessary object copies
  */
 function sanitizeHeaders(headers: Record<string, unknown>, redactList: string[]): Record<string, unknown> {
+    // Check if any headers need redacting first
+    let needsRedaction = false;
+    for (const header of redactList) {
+        if (headers[header]) {
+            needsRedaction = true;
+            break;
+        }
+    }
+
+    // If no redaction needed, return original object
+    if (!needsRedaction) {
+        return headers;
+    }
+
+    // Only create copy if redaction is needed
     const sanitized = { ...headers };
     for (const header of redactList) {
         if (sanitized[header]) {

@@ -230,8 +230,20 @@ Control what gets sent to Sentry:
 ```typescript
 import { errorConfig } from "log-bundle";
 
-// Only send specific status codes
-errorConfig.setSentryStatusCodes([500, 502, 503, 504]);
+// Send all 5xx errors (default)
+errorConfig.setSentryStatusRules([[500, 599]]);
+
+// Send all 4xx and 5xx errors
+errorConfig.setSentryStatusRules([[400, 499], [500, 599]]);
+
+// Send specific status codes
+errorConfig.setSentryStatusRules([500, 502, 503, 504]);
+
+// Send all 5xx except 502 and 503 (e.g., skip proxy/gateway errors)
+errorConfig.setSentryStatusRules([{ range: [500, 599], exclude: [502, 503] }]);
+
+// Mix ranges and specific codes
+errorConfig.setSentryStatusRules([429, [500, 599]]);
 ```
 
 Skip Sentry for specific errors:

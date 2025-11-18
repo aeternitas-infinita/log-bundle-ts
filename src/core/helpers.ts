@@ -6,8 +6,12 @@ const CWD_LENGTH = CWD.length;
 const STACK_PATTERN_WITH_PARENS = /at .* \((.+):(\d+):(\d+)\)/;
 const STACK_PATTERN_WITHOUT_PARENS = /at (.+):(\d+):(\d+)/;
 
-// Files to skip when parsing stack trace
-const SKIP_FILES = ["node_modules", "pino", "sentry", "source.ts", "helpers.ts"];
+// Files to skip when parsing stack trace - use regex for faster matching
+const SKIP_PATTERN = /node_modules|pino|sentry|source\.ts|helpers\.ts/;
+
+// Cache for parsed stack traces to avoid repeated parsing
+const stackCache = new Map<string, string>();
+const MAX_CACHE_SIZE = 100;
 
 export function getSource(): string {
     const stack = new Error().stack;
@@ -15,7 +19,16 @@ export function getSource(): string {
         return "unknown";
     }
 
+    // Use first 200 chars of stack as cache key (captures call site)
+    const cacheKey = stack.slice(0, 200);
+    const cached = stackCache.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+
     const lines = stack.split("\n");
+    let result = "unknown";
+
     // Start from index 2 to skip Error constructor and getSource itself
     for (let i = 2; i < lines.length; i++) {
         const line = lines[i];
@@ -25,8 +38,8 @@ export function getSource(): string {
             continue;
         }
 
-        // Check if line contains any skip patterns
-        if (SKIP_FILES.some(skip => line.includes(skip))) {
+        // Check if line contains any skip patterns (single regex test is faster)
+        if (SKIP_PATTERN.test(line)) {
             continue;
         }
 
@@ -53,10 +66,20 @@ export function getSource(): string {
                 }
                 relativePath = relativePath.replace(/\\/g, "/");
 
-                return `${relativePath}:${lineNumber}`;
+                result = `${relativePath}:${lineNumber}`;
+                break;
             }
         }
     }
 
-    return "unknown";
+    // Maintain cache size to prevent memory leaks
+    if (stackCache.size >= MAX_CACHE_SIZE) {
+        const firstKey = stackCache.keys().next().value;
+        if (firstKey) {
+            stackCache.delete(firstKey);
+        }
+    }
+    stackCache.set(cacheKey, result);
+
+    return result;
 }

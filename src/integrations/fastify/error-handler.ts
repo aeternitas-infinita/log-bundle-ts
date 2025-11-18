@@ -54,13 +54,23 @@ export function createFastifyErrorHandler(logger: pino.Logger, options: FastifyE
             errorType: error.constructor?.name ?? "UnknownError",
         };
 
-        // Redact sensitive headers
-        const redactedHeaders = { ...request.headers };
-        redactHeaders.forEach((header) => {
-            if (redactedHeaders[header]) {
-                redactedHeaders[header] = "[REDACTED]";
+        // Redact sensitive headers (optimized to avoid unnecessary copies)
+        let needsRedaction = false;
+        for (const header of redactHeaders) {
+            if (request.headers[header]) {
+                needsRedaction = true;
+                break;
             }
-        });
+        }
+
+        const redactedHeaders = needsRedaction ? { ...request.headers } : request.headers;
+        if (needsRedaction) {
+            for (const header of redactHeaders) {
+                if (redactedHeaders[header]) {
+                    redactedHeaders[header] = "[REDACTED]";
+                }
+            }
+        }
 
         // Handle server errors (5xx) - these are critical and go to Sentry
         if (isServerError) {

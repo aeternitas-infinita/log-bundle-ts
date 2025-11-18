@@ -147,16 +147,27 @@ logger.errorWithSentry(
 
 ### Client Errors (4xx)
 
-By default, client errors (4xx) are not sent to Sentry. You can customize this:
+By default, client errors (4xx) are not sent to Sentry. You can customize this using status code rules:
 
 ```typescript
 import { errorConfig } from "log-bundle";
 
-// Send specific 4xx errors to Sentry
-errorConfig.setSentryStatusCodes([
+// Send all 4xx and 5xx errors
+errorConfig.setSentryStatusRules([
+  [400, 499], // All client errors
+  [500, 599], // All server errors
+]);
+
+// Send only specific 4xx errors + all 5xx
+errorConfig.setSentryStatusRules([
   401, // Unauthorized - auth issues
   403, // Forbidden - permission issues
-  500, 502, 503, 504, // All 5xx
+  [500, 599], // All server errors
+]);
+
+// Send all 5xx except proxy/gateway errors
+errorConfig.setSentryStatusRules([
+  { range: [500, 599], exclude: [502, 503, 504] }
 ]);
 ```
 

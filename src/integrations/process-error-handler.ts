@@ -76,8 +76,9 @@ export type ProcessErrorHandlerOptions = {
  * Sets up process error handlers to prevent app crashes and log errors properly
  * @param logger - Pino logger instance to use for logging
  * @param options - Configuration options
+ * @returns Cleanup function to remove all event listeners and prevent memory leaks
  */
-export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessErrorHandlerOptions = {}): void {
+export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessErrorHandlerOptions = {}): () => void {
     const {
         exitOnUncaughtException = false,
         exitOnUnhandledRejection = false,
@@ -106,9 +107,18 @@ export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessE
         process.exit(code);
     };
 
+    // Store handler references for cleanup
+    const handlers: {
+        uncaughtException?: (error: Error, origin: string) => void;
+        unhandledRejection?: (reason: unknown, promise: Promise<unknown>) => void;
+        warning?: (warning: Error) => void;
+        sigterm?: () => void;
+        sigint?: () => void;
+    } = {};
+
     // Handle uncaught exceptions
     if (handleUncaughtException) {
-        process.on("uncaughtException", (error: Error, origin: string) => {
+        handlers.uncaughtException = (error: Error, origin: string) => {
             logger.fatal(
                 {
                     error: {
@@ -164,12 +174,14 @@ export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessE
                     process.exit(1);
                 }
             });
-        });
+        };
+
+        process.on("uncaughtException", handlers.uncaughtException);
     }
 
     // Handle unhandled promise rejections
     if (handleUnhandledRejection) {
-        process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
+        handlers.unhandledRejection = (reason: unknown, promise: Promise<unknown>) => {
             const error = reason instanceof Error ? reason : new Error(String(reason));
 
             logger.error(
@@ -232,12 +244,14 @@ export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessE
                     process.exit(1);
                 }
             });
-        });
+        };
+
+        process.on("unhandledRejection", handlers.unhandledRejection);
     }
 
     // Handle process warnings
     if (handleWarnings) {
-        process.on("warning", (warning: Error) => {
+        handlers.warning = (warning: Error) => {
             logger.warn(
                 {
                     warning: {
@@ -248,12 +262,14 @@ export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessE
                 },
                 "Process warning detected"
             );
-        });
+        };
+
+        process.on("warning", handlers.warning);
     }
 
     // Handle SIGTERM for graceful shutdown
     if (handleSigterm) {
-        process.on("SIGTERM", () => {
+        handlers.sigterm = () => {
             logger.info("SIGTERM signal received: closing HTTP server");
 
             const handleShutdown = async (): Promise<void> => {
@@ -271,12 +287,14 @@ export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessE
                 logger.error({ err }, "Error during SIGTERM shutdown");
                 process.exit(0);
             });
-        });
+        };
+
+        process.on("SIGTERM", handlers.sigterm);
     }
 
     // Handle SIGINT (Ctrl+C) for graceful shutdown
     if (handleSigint) {
-        process.on("SIGINT", () => {
+        handlers.sigint = () => {
             logger.info("SIGINT signal received: closing HTTP server");
 
             const handleShutdown = async (): Promise<void> => {
@@ -294,7 +312,9 @@ export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessE
                 logger.error({ err }, "Error during SIGINT shutdown");
                 process.exit(0);
             });
-        });
+        };
+
+        process.on("SIGINT", handlers.sigint);
     }
 
     logger.info(
@@ -313,4 +333,24 @@ export function setupProcessErrorHandlers(logger: pino.Logger, options: ProcessE
         },
         "Process error handlers configured"
     );
+
+    // Return cleanup function
+    return () => {
+        if (handlers.uncaughtException) {
+            process.removeListener("uncaughtException", handlers.uncaughtException);
+        }
+        if (handlers.unhandledRejection) {
+            process.removeListener("unhandledRejection", handlers.unhandledRejection);
+        }
+        if (handlers.warning) {
+            process.removeListener("warning", handlers.warning);
+        }
+        if (handlers.sigterm) {
+            process.removeListener("SIGTERM", handlers.sigterm);
+        }
+        if (handlers.sigint) {
+            process.removeListener("SIGINT", handlers.sigint);
+        }
+        logger.info("Process error handlers removed");
+    };
 }

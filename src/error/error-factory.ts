@@ -22,15 +22,26 @@ export class ErrorFactory {
     constructor(private readonly context: Record<string, any>) {}
 
     /**
+     * Merge context efficiently without unnecessary object spreading
+     */
+    private mergeContext(optionsContext?: Record<string, any>): Record<string, any> {
+        if (!optionsContext) {
+            return this.context;
+        }
+        return Object.assign({}, this.context, optionsContext);
+    }
+
+    /**
      * Creates a NOT_FOUND error (404) with bound context
      */
     notFound(resource: string, id?: unknown, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.notFound(resource, id, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -38,12 +49,13 @@ export class ErrorFactory {
      * Creates a VALIDATION error (400) with bound context
      */
     validation(message: string, field?: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.validation(message, field, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -51,12 +63,13 @@ export class ErrorFactory {
      * Creates a DATABASE error (500) with bound context
      */
     database(message: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.database(message, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -64,12 +77,13 @@ export class ErrorFactory {
      * Creates an INTERNAL error (500) with bound context
      */
     internal(message: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.internal(message, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -77,12 +91,13 @@ export class ErrorFactory {
      * Creates a FORBIDDEN error (403) with bound context
      */
     forbidden(resource: string, reason?: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.forbidden(resource, reason, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -90,12 +105,13 @@ export class ErrorFactory {
      * Creates an UNAUTHORIZED error (401) with bound context
      */
     unauthorized(reason?: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.unauthorized(reason, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -103,12 +119,13 @@ export class ErrorFactory {
      * Creates a BAD_INPUT error (400) with bound context
      */
     badInput(message: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.badInput(message, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -116,12 +133,13 @@ export class ErrorFactory {
      * Creates a CONFLICT error (409) with bound context
      */
     conflict(resource: string, reason?: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.conflict(resource, reason, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -129,12 +147,13 @@ export class ErrorFactory {
      * Creates an EXTERNAL error (502) with bound context
      */
     external(service: string, message: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.external(service, message, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -142,12 +161,13 @@ export class ErrorFactory {
      * Creates a TIMEOUT error (504) with bound context
      */
     timeout(operation: string, duration?: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.timeout(operation, duration, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 
@@ -155,12 +175,13 @@ export class ErrorFactory {
      * Creates a BUSY error (503) with bound context
      */
     busy(message: string, options?: CreateErrorDataOptions): ErrorData {
+        const mergedInternal = options?.internal
+            ? { ...options.internal, context: this.mergeContext(options.internal.context) }
+            : { context: this.context };
+
         return factories.busy(message, {
             ...options,
-            internal: {
-                ...options?.internal,
-                context: { ...this.context, ...options?.internal?.context },
-            },
+            internal: mergedInternal,
         });
     }
 

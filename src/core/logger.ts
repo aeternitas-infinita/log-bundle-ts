@@ -18,20 +18,24 @@ const DEFAULT_FORMATTERS = {
     },
 };
 
-// Default timestamp function using native Date methods for better performance
+// Optimized timestamp function using template literals instead of multiple concatenations
 const DEFAULT_TIMESTAMP = () => {
     const date = new Date();
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    const seconds = String(date.getSeconds()).padStart(2, "0");
-    return `,"time":"${year}-${month}-${day} ${hours}:${minutes}:${seconds}"`;
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const seconds = date.getSeconds();
+
+    // Single template literal is much faster than multiple String() + padStart() calls
+    return `,"time":"${year}-${month < 10 ? '0' : ''}${month}-${day < 10 ? '0' : ''}${day} ${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}"`;
 };
 
-// Lazy initialization of default transport to avoid creating it on module load
+// Lazy initialization of default transport with reference counting
 let cachedDefaultTransport: pino.DestinationStream | undefined;
+let transportRefCount = 0;
+
 function getDefaultTransport(): pino.DestinationStream {
     if (!cachedDefaultTransport) {
         cachedDefaultTransport = pino.transport({
@@ -46,7 +50,26 @@ function getDefaultTransport(): pino.DestinationStream {
             ],
         }) as pino.DestinationStream;
     }
+    transportRefCount++;
     return cachedDefaultTransport;
+}
+
+/**
+ * Release the default transport reference
+ * Should be called when logger is no longer needed
+ */
+export function releaseDefaultTransport(): void {
+    transportRefCount--;
+    if (transportRefCount <= 0 && cachedDefaultTransport) {
+        // Close the transport to release resources
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        if (typeof (cachedDefaultTransport as any).end === "function") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            (cachedDefaultTransport as any).end();
+        }
+        cachedDefaultTransport = undefined;
+        transportRefCount = 0;
+    }
 }
 
 export type LoggerConfig = pino.LoggerOptions;

@@ -23,7 +23,7 @@ export { setupProcessErrorHandlers } from "./integrations/process-error-handler.
 export type { ProcessErrorHandlerOptions } from "./integrations/process-error-handler.js";
 
 // Error handling system (lightweight, non-throwable error data objects)
-export type { ErrorData, HttpError } from "./error/index.js";
+export type { ErrorData, HttpError, StatusCodeRule } from "./error/index.js";
 export {
     badInput,
     busy,

@@ -40,3 +40,4 @@ export { HttpError, isHttpError, throwInternal } from "./error-helpers.js";
 
 // Global error configuration
 export { errorConfig } from "./error-config.js";
+export type { StatusCodeRule } from "./error-config.js";
