@@ -4,12 +4,12 @@
  */
 export enum ErrorType {
     INTERNAL = "internal", // Internal server errors (500)
-    NOT_FOUND = "not_found", // Resource not found (404)
+    NOT_FOUND = "not-found", // Resource not found (404)
     VALIDATION = "validation", // Validation failures (400)
     DATABASE = "database", // Database errors (500)
     BUSY = "busy", // Service busy/unavailable (503)
     FORBIDDEN = "forbidden", // Access forbidden (403)
-    BAD_INPUT = "bad_input", // Bad request input (400)
+    BAD_INPUT = "bad-input", // Bad request input (400)
     UNAUTHORIZED = "unauthorized", // Unauthorized access (401)
     CONFLICT = "conflict", // Resource conflict (409)
     EXTERNAL = "external", // External service error (502)

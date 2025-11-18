@@ -1,11 +1,11 @@
 # Error Handling
 
-log-bundle provides a comprehensive error handling system with predefined error types, HTTP status mappings, and RFC 7807 compliant responses.
+log-bundle provides a comprehensive error handling system with predefined error types, HTTP status mappings, and RFC 9457 compliant responses.
 
 ## Public vs Internal Data
 
 The error system clearly separates:
-- **Public data** - Safe to send to end users (title, detail, meta, validationErrors)
+- **Public data** - Safe to send to end users (type, title, detail, meta, validationErrors)
 - **Internal data** - Only for logs/Sentry (cause, context, tags)
 
 This prevents accidental exposure of sensitive information like stack traces, database queries, or internal system details to end users.
@@ -51,9 +51,18 @@ const error = notFound("user", userId, {
   }
 });
 
-// With public metadata (sent to users)
+// With custom problem type (URN format)
 const error = notFound("user", userId, {
   public: {
+    type: "user-not-found", // Becomes "urn:problem:user-not-found"
+    meta: { suggestion: "Check the user ID format" }
+  }
+});
+
+// With full URL problem type
+const error = notFound("user", userId, {
+  public: {
+    type: "https://api.example.com/errors/user-not-found",
     meta: { suggestion: "Check the user ID format" }
   }
 });
@@ -236,9 +245,10 @@ type ErrorData = {
   readonly message: string; // Internal only
 
   readonly public?: {
-    title?: string;           // RFC 7807
-    detail?: string;          // RFC 7807
-    instance?: string;        // RFC 7807
+    type?: string;            // RFC 9457: problem type (URN or URL)
+    title?: string;           // RFC 9457
+    detail?: string;          // RFC 9457
+    instance?: string;        // RFC 9457
     meta?: Record<string, unknown>; // Public metadata
     validationErrors?: ValidationError[];
   };
@@ -255,12 +265,19 @@ type ErrorData = {
 ```
 
 ### Public Data
-Data in `public` is safe to send to end users via HTTP responses. It follows RFC 7807 standards:
+Data in `public` is safe to send to end users via HTTP responses. It follows RFC 9457 standards:
+- `type` - Problem type identifier (defaults to `"urn:problem:{error-type}"`, or custom string/URL)
 - `title` - Short human-readable summary
 - `detail` - Human-readable explanation specific to this error
 - `instance` - URI reference to this specific error occurrence
 - `meta` - Additional public metadata (e.g., suggestions, links)
 - `validationErrors` - Array of field validation errors
+
+#### Problem Type (RFC 9457)
+The `type` field identifies the error type:
+- **Default**: Automatically generated from ErrorType as `"urn:problem:not-found"`
+- **Custom string**: Use your own identifier like `"user-not-found"` → becomes `"urn:problem:user-not-found"`
+- **Full URL**: Use complete URL like `"https://api.example.com/errors/user-not-found"` → used as-is
 
 ### Internal Data
 Data in `internal` is only for logs and Sentry, never exposed to users:
@@ -343,7 +360,7 @@ const { statusCode, body } = toHttpResponse(error);
 
 // statusCode: 404
 // body: {
-//   type: "/errors/not_found",
+//   type: "urn:problem:not-found",
 //   title: "Resource Not Found",
 //   status: 404,
 //   detail: "The requested user could not be found"
@@ -351,23 +368,30 @@ const { statusCode, body } = toHttpResponse(error);
 // Note: Only public data is included, internal context is excluded
 ```
 
-### Converting to Error Response (RFC 7807)
+### Converting to Error Response (RFC 9457)
 
 ```typescript
 import { toErrorResponse, notFound } from "log-bundle";
 
-const error = notFound("user", userId, {
-  public: { meta: { suggestion: "Check user ID" } }
-});
-const response = toErrorResponse(error, "https://api.example.com");
+// Default URN format
+const error1 = notFound("user", userId);
+toErrorResponse(error1);
+// { type: "urn:problem:not-found", title: "Resource Not Found", status: 404, ... }
 
-// response: {
-//   type: "https://api.example.com/errors/not_found",
-//   title: "Resource Not Found",
-//   status: 404,
-//   detail: "The requested user could not be found",
-//   meta: { suggestion: "Check user ID" }
-// }
+// Custom type string
+const error2 = notFound("user", userId, {
+  public: { type: "user-not-found", meta: { suggestion: "Check user ID" } }
+});
+toErrorResponse(error2);
+// { type: "urn:problem:user-not-found", title: "...", status: 404, meta: { ... } }
+
+// Full URL
+const error3 = notFound("user", userId, {
+  public: { type: "https://api.example.com/errors/user-not-found" }
+});
+toErrorResponse(error3);
+// { type: "https://api.example.com/errors/user-not-found", title: "...", status: 404 }
+
 // Note: Only public data is included (meta from public, not internal.context)
 ```
 

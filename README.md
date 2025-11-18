@@ -5,7 +5,7 @@ Production-ready logging and error handling library for Node.js with Pino, Sentr
 ## Features
 
 - **Structured Logging** - Built on Pino for high-performance JSON logging
-- **Error Handling** - RFC 7807 compliant error responses with predefined error types
+- **Error Handling** - RFC 9457 compliant error responses with predefined error types
 - **Sentry Integration** - Automatic error tracking and performance monitoring
 - **Fastify Support** - First-class Fastify middleware and error handlers
 - **Type Safety** - Full TypeScript support with comprehensive types
@@ -380,14 +380,6 @@ log-bundle is optimized for production use:
 - **Native Date methods** for timestamp generation (no external dependencies)
 - **Pre-compiled regexes** and cached values
 - **Optimized string operations** in hot paths
-
-## Contributing
-
-Contributions are welcome! Please read the [contributing guidelines](./CONTRIBUTING.md) before submitting PRs.
-
-## License
-
-MIT
 
 ## Author
 
