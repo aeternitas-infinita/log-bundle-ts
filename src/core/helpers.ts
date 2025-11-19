@@ -9,21 +9,10 @@ const STACK_PATTERN_WITHOUT_PARENS = /at (.+):(\d+):(\d+)/;
 // Files to skip when parsing stack trace - use regex for faster matching
 const SKIP_PATTERN = /node_modules|pino|sentry|source\.ts|helpers\.ts/;
 
-// Cache for parsed stack traces to avoid repeated parsing
-const stackCache = new Map<string, string>();
-const MAX_CACHE_SIZE = 100;
-
 export function getSource(): string {
     const stack = new Error().stack;
     if (!stack) {
         return "unknown";
-    }
-
-    // Use first 200 chars of stack as cache key (captures call site)
-    const cacheKey = stack.slice(0, 200);
-    const cached = stackCache.get(cacheKey);
-    if (cached) {
-        return cached;
     }
 
     const lines = stack.split("\n");
@@ -71,15 +60,6 @@ export function getSource(): string {
             }
         }
     }
-
-    // Maintain cache size to prevent memory leaks
-    if (stackCache.size >= MAX_CACHE_SIZE) {
-        const firstKey = stackCache.keys().next().value;
-        if (firstKey) {
-            stackCache.delete(firstKey);
-        }
-    }
-    stackCache.set(cacheKey, result);
 
     return result;
 }
