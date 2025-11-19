@@ -57,6 +57,8 @@ export type ErrorResponse = {
 export type SuccessResponse<T = unknown> = {
     /** The response payload */
     data?: T;
+    /** Optional message for the client */
+    message?: string;
 }
 
 /**

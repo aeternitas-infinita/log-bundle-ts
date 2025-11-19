@@ -66,6 +66,9 @@ export {
     withoutSentry,
 } from "./error/index.js";
 
+// API Response factory (standardized success/error response builder)
+export { ApiResponse } from "./error/index.js";
+
 // Default export
 import { createLogger } from "./core/logger.js";
 export default createLogger;
