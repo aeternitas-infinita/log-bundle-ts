@@ -3,7 +3,7 @@ import type * as pino from "pino";
 import { sendToSentry } from "../sentry/plugin.js";
 import { createErrorData, getOriginalError, shouldSendToSentry, toHttpResponse, toLogObject } from "../../error/error-data.js";
 import { ErrorType } from "../../error/error-types.js";
-import { isHttpError, type HttpError } from "../../error/error-helpers.js";
+import { isCustomError, type CustomError } from "../../error/error-helpers.js";
 
 export type ErrorPipeOptions = {
     /**
@@ -66,7 +66,7 @@ function sanitizeHeaders(headers: Record<string, unknown>, redactList: string[])
  * 3. Logs structured error data
  * 4. Returns clean HTTP responses
  *
- * Handles both HttpError (from throwNotFound, etc.) and standard errors
+ * Handles both CustomError (from throwNotFound, etc.) and standard errors
  *
  * @example
  * ```typescript
@@ -88,7 +88,7 @@ export function createErrorPipe(logger: pino.Logger, options: ErrorPipeOptions =
 
     const shouldIncludeDetails = includeErrorDetails || environment === "dev" || environment === "local";
 
-    return async function errorPipe(error: FastifyError | HttpError | Error, request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    return async function errorPipe(error: FastifyError | CustomError | Error, request: FastifyRequest, reply: FastifyReply): Promise<void> {
         // Create child logger with request ID
         const requestLogger = logger.child({ req_id: request.id });
 
@@ -98,9 +98,10 @@ export function createErrorPipe(logger: pino.Logger, options: ErrorPipeOptions =
         let context: Record<string, unknown> = {};
         let skipSentry = false;
 
-        if (isHttpError(error)) {
-            // HttpError from throwNotFound(), etc.
-            statusCode = error.statusCode;
+        if (isCustomError(error)) {
+            // CustomError from throwNotFound(), etc.
+            // Use getStatusCode() to derive from errorType if not explicitly set
+            statusCode = error.getStatusCode();
             errorType = error.errorType;
             context = error.context ?? {};
             skipSentry = error.skipSentry ?? false;

@@ -1,28 +1,72 @@
-import { ErrorType } from "./error-types.js";
+import { DEFAULT_HTTP_STATUS_MAP, ErrorType } from "./error-types.js";
 
 /**
- * HttpError - A lightweight throwable error for route handlers
+ * CustomError - A lightweight throwable error for route handlers and general error handling
  * Carries metadata but delegates to ErrorData for response formatting
+ *
+ * HTTP status code is optional - if not provided, it will be derived from errorType
  */
-export class HttpError extends Error {
+export class CustomError extends Error {
     public override readonly cause?: Error;
+    public readonly statusCode?: number;
+    public readonly context?: Record<string, unknown>;
+    public readonly skipSentry?: boolean;
+
+    // Private cache for computed values
+    private _cachedStatusCode?: number;
+    private _stackAccessed = false;
 
     constructor(
         message: string,
-        public readonly statusCode: number,
         public readonly errorType: ErrorType,
-        public readonly context?: Record<string, unknown>,
-        public readonly skipSentry?: boolean,
-        cause?: Error
+        options?: {
+            statusCode?: number;
+            context?: Record<string, unknown>;
+            skipSentry?: boolean;
+            cause?: Error;
+        }
     ) {
         super(message);
-        this.name = "HttpError";
-        this.cause = cause;
 
-        // Preserve original stack if wrapping
-        if (cause?.stack) {
-            this.stack = `${this.stack}\nCaused by: ${cause.stack}`;
+        // Include errorType in name for better debugging
+        this.name = `CustomError[${errorType}]`;
+
+        this.statusCode = options?.statusCode;
+        this.context = options?.context;
+        this.skipSentry = options?.skipSentry;
+        this.cause = options?.cause;
+
+        // Cache status code on construction if explicitly provided
+        if (options?.statusCode !== undefined) {
+            this._cachedStatusCode = options.statusCode;
         }
+    }
+
+    /**
+     * Lazy stack property getter - only concatenates cause stack when accessed
+     * This improves performance when errors are thrown but stack isn't needed
+     */
+    public override get stack(): string | undefined {
+        if (!this._stackAccessed && this.cause?.stack) {
+            this._stackAccessed = true;
+            const baseStack = super.stack;
+            super.stack = `${baseStack}\nCaused by: ${this.cause.stack}`;
+        }
+        return super.stack;
+    }
+
+    public override set stack(value: string | undefined) {
+        this._stackAccessed = true;
+        super.stack = value;
+    }
+
+    /**
+     * Gets the HTTP status code, deriving from errorType if not explicitly set
+     * Uses cached value for performance
+     */
+    getStatusCode(): number {
+        this._cachedStatusCode ??= this.statusCode ?? DEFAULT_HTTP_STATUS_MAP[this.errorType];
+        return this._cachedStatusCode;
     }
 
     /**
@@ -31,34 +75,53 @@ export class HttpError extends Error {
     wrap(error: Error): this {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (this as any).cause = error;
-        if (error.stack) {
-            this.stack = `${this.stack}\nCaused by: ${error.stack}`;
-        }
+        this._stackAccessed = false; // Reset flag to trigger lazy concatenation
         return this;
+    }
+
+    /**
+     * Custom JSON serialization for better logging and debugging
+     * Only includes relevant fields without circular references
+     */
+    toJSON(): Record<string, unknown> {
+        return {
+            name: this.name,
+            message: this.message,
+            errorType: this.errorType,
+            statusCode: this.getStatusCode(),
+            context: this.context,
+            skipSentry: this.skipSentry,
+            // Include cause name and message but not full object to avoid circular refs
+            cause: this.cause
+                ? {
+                      name: this.cause.name,
+                      message: this.cause.message,
+                  }
+                : undefined,
+        };
     }
 }
 
 /**
- * Type guard to check if error is an HttpError
+ * Type guard to check if error is a CustomError
  */
-export function isHttpError(error: unknown): error is HttpError {
-    return error instanceof HttpError;
+export function isCustomError(error: unknown): error is CustomError {
+    return error instanceof CustomError;
 }
 
 /**
- * INTERNAL ONLY - Throw function for internal server errors
- * This is the only throw helper provided to prevent users from throwing
- * custom error types. Users should use new HttpError() directly for custom types.
- *
  * @example
  * ```typescript
  * // For internal errors - use helper
  * throwInternal("Database connection failed", originalError);
  *
- * // For custom types - use HttpError directly
- * throw new HttpError("Custom error", 404, ErrorType.NOT_FOUND, { id: 123 });
+ * // For custom types - use CustomError directly
+ * throw new CustomError("Custom error", ErrorType.NOT_FOUND, {
+ *   statusCode: 404,
+ *   context: { id: 123 }
+ * });
  * ```
  */
 export function throwInternal(message: string, cause?: Error): never {
-    throw new HttpError(message, 500, ErrorType.INTERNAL, undefined, undefined, cause);
+    throw new CustomError(message, ErrorType.INTERNAL, { statusCode: 500, cause });
 }

@@ -3,7 +3,7 @@ import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import type * as pino from "pino";
 import type { ErrorData } from "../../error/error-data.js";
 import { extractErrorData, isErrorData } from "../../error/error-utils.js";
-import { isHttpError } from "../../error/error-helpers.js";
+import { isCustomError } from "../../error/error-helpers.js";
 
 export type RawErrorHandlerOptions = {
     /**
@@ -22,7 +22,7 @@ export type RawErrorHandlerOptions = {
      * Custom error formatter - transform ErrorData to your custom response format
      * This is where you implement your legacy response format
      *
-     * @param error - Original error (FastifyError, HttpError, or any)
+     * @param error - Original error (FastifyError, CustomError, or any)
      * @param errorData - Extracted ErrorData (if available)
      * @param request - Fastify request
      * @returns Your custom response object and optional status code override
@@ -78,7 +78,7 @@ export type RawErrorHandlerOptions = {
  * Perfect for legacy projects with existing error response formats
  *
  * This handler:
- * - Extracts ErrorData from HttpError or ErrorData objects
+ * - Extracts ErrorData from CustomError or ErrorData objects
  * - Calls your custom formatError function to create the response
  * - Logs errors with request context
  * - Optionally sends to Sentry based on your filter
@@ -132,15 +132,15 @@ export function createRawFastifyErrorHandler(
         // Extract ErrorData if available
         let errorData: ErrorData | null = null;
 
-        if (isHttpError(error)) {
-            // Error is HttpError - convert to ErrorData
+        if (isCustomError(error)) {
+            // Error is CustomError - convert to ErrorData
             const { createErrorData } = await import("../../error/error-data.js");
             errorData = createErrorData(error.errorType, error.message, {
                 internal: {
                     context: error.context,
                 },
                 skipSentry: error.skipSentry,
-                httpStatus: error.statusCode,
+                httpStatus: error.getStatusCode(),
             });
         } else if (isErrorData(error)) {
             // Error is ErrorData directly

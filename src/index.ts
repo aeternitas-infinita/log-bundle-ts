@@ -23,12 +23,13 @@ export { setupProcessErrorHandlers } from "./integrations/process-error-handler.
 export type { ProcessErrorHandlerOptions } from "./integrations/process-error-handler.js";
 
 // Error handling system (lightweight, non-throwable error data objects)
-export type { ErrorData, HttpError, StatusCodeRule } from "./error/index.js";
+export type { ErrorData, StatusCodeRule } from "./error/index.js";
 export {
     badInput,
     busy,
     conflict,
     createErrorData,
+    CustomError,
     database,
     DEFAULT_HTTP_STATUS_MAP,
     errorConfig,
@@ -37,7 +38,9 @@ export {
     external,
     forbidden,
     getHttpStatus,
+    HttpError,
     internal,
+    isCustomError,
     isHttpError,
     notFound,
     shouldSendToSentry,
