@@ -449,4 +449,4 @@ aeternitas-infinita
 
 ## Repository
 
-https://github.com/aeternitas-infinita/log-bundle-ts
+<https://github.com/aeternitas-infinita/log-bundle-ts>
