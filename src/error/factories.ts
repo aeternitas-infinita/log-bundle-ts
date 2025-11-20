@@ -25,7 +25,7 @@ export function notFound(resource: string, id?: unknown, options?: CreateErrorDa
 }
 
 /**
- * Creates a VALIDATION error (400)
+ * Creates a VALIDATION error (422)
  * @param message - The validation error message
  * @param field - Optional field that failed validation
  * @param options - Additional options for public/internal data

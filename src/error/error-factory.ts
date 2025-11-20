@@ -46,7 +46,7 @@ export class ErrorFactory {
     }
 
     /**
-     * Creates a VALIDATION error (400) with bound context
+     * Creates a VALIDATION error (422) with bound context
      */
     validation(message: string, field?: string, options?: CreateErrorDataOptions): ErrorData {
         const mergedInternal = options?.internal

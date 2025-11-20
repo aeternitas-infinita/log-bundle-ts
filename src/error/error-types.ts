@@ -67,7 +67,7 @@ export type SuccessResponse<T = unknown> = {
 export const DEFAULT_HTTP_STATUS_MAP: Record<ErrorType, number> = {
     [ErrorType.INTERNAL]: 500,
     [ErrorType.NOT_FOUND]: 404,
-    [ErrorType.VALIDATION]: 400,
+    [ErrorType.VALIDATION]: 422,
     [ErrorType.DATABASE]: 500,
     [ErrorType.BUSY]: 503,
     [ErrorType.FORBIDDEN]: 403,
