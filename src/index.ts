@@ -13,6 +13,7 @@ export { createFastifyErrorHandler } from "./integrations/fastify/error-handler.
 export type { FastifyErrorHandlerOptions } from "./integrations/fastify/error-handler.js";
 export { createErrorPipe } from "./integrations/fastify/error-pipe.js";
 export type { ErrorPipeOptions } from "./integrations/fastify/error-pipe.js";
+export { createZodValidatorCompiler } from "./integrations/fastify/zod-validator.js";
 
 // Fastify integration (raw/low-level for legacy projects)
 export { createRawFastifyErrorHandler } from "./integrations/fastify/raw-error-handler.js";

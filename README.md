@@ -6,6 +6,7 @@ Production-ready logging and error handling library for Node.js with Pino, Sentr
 
 - **Structured Logging** - Built on Pino for high-performance JSON logging
 - **Error Handling** - RFC 9457 compliant error responses with predefined error types
+- **Zod Integration** - Automatic validation error formatting with detailed field-level errors
 - **Sentry Integration** - Automatic error tracking and performance monitoring
 - **Fastify Support** - First-class Fastify middleware and error handlers
 - **Type Safety** - Full TypeScript support with comprehensive types
@@ -21,7 +22,7 @@ npm install log-bundle
 Optional peer dependencies:
 
 ```bash
-npm install @sentry/node fastify
+npm install @sentry/node fastify zod
 ```
 
 ## Quick Start
@@ -154,17 +155,21 @@ The middleware order matters. Here's the correct setup:
 
 ```typescript
 import fastify from "fastify";
-import { createLogger, createErrorPipe } from "log-bundle";
+import { createLogger, createErrorPipe, createZodValidatorCompiler } from "log-bundle";
+import { z } from "zod";
 
 const app = fastify({ logger: createLogger() });
 
-// 1. Register plugins
+// 1. Register Zod validator (optional, for automatic validation)
+app.setValidatorCompiler(createZodValidatorCompiler());
+
+// 2. Register plugins
 await app.register(import("@fastify/cors"));
 
-// 2. Register routes
+// 3. Register routes
 app.get("/", async () => ({ hello: "world" }));
 
-// 3. Register error handler (MUST BE LAST)
+// 4. Register error handler (MUST BE LAST)
 app.setErrorHandler(
   createErrorPipe(logger, {
     environment: process.env.NODE_ENV,
@@ -258,6 +263,50 @@ error = withoutSentry(error);
 // Or directly in factory
 const error = notFound("user", userId, { skipSentry: true });
 ```
+
+### Zod Validation
+
+Automatic validation error formatting with Fastify:
+
+```typescript
+import { z } from "zod";
+import { createZodValidatorCompiler, createErrorPipe } from "log-bundle";
+
+// Set up validator compiler
+app.setValidatorCompiler(createZodValidatorCompiler());
+app.setErrorHandler(createErrorPipe(logger));
+
+// Use Zod schemas in routes
+app.post("/users", {
+  schema: {
+    body: z.object({
+      email: z.string().email(),
+      age: z.number().min(18),
+    }),
+  },
+  handler: async (request, reply) => {
+    // request.body is typed and validated
+    return { success: true };
+  },
+});
+
+// Automatic RFC 9457 error response on validation failure (422):
+// {
+//   "type": "urn:problem:validation",
+//   "title": "Validation Error",
+//   "status": 422,
+//   "detail": "Request validation failed",
+//   "errors": [
+//     {
+//       "field": "email",
+//       "message": "Invalid email",
+//       "meta": { "code": "invalid_string", "validation": "email" }
+//     }
+//   ]
+// }
+```
+
+See [Zod Validation Guide](./docs/zod-validation.md) for complete documentation.
 
 ### Process Error Handlers
 
@@ -366,6 +415,7 @@ setupProcessErrorHandlers(logger: Logger, options?: ProcessErrorHandlerOptions):
 
 - [Getting Started](./docs/getting-started.md) - Detailed setup guide
 - [Error Handling](./docs/error-handling.md) - Complete error handling guide
+- [Zod Validation](./docs/zod-validation.md) - Automatic validation error handling with Zod
 - [Fastify Integration](./docs/fastify-integration.md) - Fastify middleware order and best practices
 - [Sentry Integration](./docs/sentry-integration.md) - Sentry configuration and security
 

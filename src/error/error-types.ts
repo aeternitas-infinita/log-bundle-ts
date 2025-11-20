@@ -18,7 +18,7 @@ export enum ErrorType {
 
 /**
  * ValidationError represents a single field validation error
- * Following RFC 7807 problem details standard
+ * Following RFC 9457 problem details standard with extensions for detailed validation info
  */
 export type ValidationError = {
     /** Field name that failed validation */
@@ -27,6 +27,8 @@ export type ValidationError = {
     message: string;
     /** The value that failed validation (optional) */
     value?: unknown;
+    /** Additional metadata about the validation error (Zod error code, expected type, constraints, etc.) */
+    meta?: Record<string, unknown>;
 }
 
 /**

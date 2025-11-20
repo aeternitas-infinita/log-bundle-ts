@@ -1,5 +1,6 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import type * as pino from "pino";
+import { ZodError } from "zod";
 import {
     createErrorData,
     getOriginalError,
@@ -8,7 +9,7 @@ import {
     toLogObject,
 } from "../../error/error-data.js";
 import { isCustomError, type CustomError } from "../../error/error-helpers.js";
-import { ErrorType } from "../../error/error-types.js";
+import { ErrorType, type ValidationError } from "../../error/error-types.js";
 import { sendToSentry } from "../sentry/plugin.js";
 
 export type ErrorPipeOptions = {
@@ -35,6 +36,37 @@ export type ErrorPipeOptions = {
      */
     captureRequestBody?: boolean;
 };
+
+/**
+ * Checks if an error is a Fastify validation error with Zod
+ * This is the most reliable way to detect Zod validation errors from Fastify
+ */
+function isZodValidationError(error: unknown): error is FastifyError & ZodError {
+    return error instanceof ZodError;
+}
+
+/**
+ * Converts Zod validation errors to ValidationError format
+ * Includes all available Zod error information while maintaining RFC 9457 format
+ */
+function parseZodErrors(zodError: ZodError): ValidationError[] {
+    return zodError.issues.map((issue) => {
+        // Copy all issue properties to meta (except path and message which are already in the main fields)
+        const meta: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(issue)) {
+            // Skip path and message as they're already in the ValidationError
+            if (key !== "path" && key !== "message") {
+                meta[key] = val;
+            }
+        }
+
+        return {
+            field: issue.path.length > 0 ? issue.path.join(".") : "root",
+            message: issue.message,
+            meta,
+        };
+    });
+}
 
 /**
  * Sanitizes headers by redacting sensitive ones
@@ -107,8 +139,16 @@ export function createErrorPipe(logger: pino.Logger, options: ErrorPipeOptions =
         let errorType: ErrorType;
         let context: Record<string, unknown> = {};
         let skipSentry = false;
+        let validationErrors: ValidationError[] | undefined;
 
-        if (isCustomError(error)) {
+        // Check if this is a Zod validation error first
+        if (isZodValidationError(error)) {
+            // Fastify validation error with Zod
+            statusCode = 422;
+            errorType = ErrorType.VALIDATION;
+            validationErrors = parseZodErrors(error);
+            skipSentry = true; // Don't send validation errors to Sentry
+        } else if (isCustomError(error)) {
             // CustomError from throwNotFound(), etc.
             // Use getStatusCode() to derive from errorType if not explicitly set
             statusCode = error.getStatusCode();
@@ -139,6 +179,13 @@ export function createErrorPipe(logger: pino.Logger, options: ErrorPipeOptions =
 
         // Create ErrorData for structured response
         const errorData = createErrorData(errorType, error.message, {
+            public: validationErrors
+                ? {
+                      title: "Validation Error",
+                      detail: "Request validation failed",
+                      validationErrors,
+                  }
+                : undefined,
             internal: {
                 cause: error, // Original error for Sentry
                 context: {
