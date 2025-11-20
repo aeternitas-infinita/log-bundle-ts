@@ -1,9 +1,15 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import type * as pino from "pino";
-import { sendToSentry } from "../sentry/plugin.js";
-import { createErrorData, getOriginalError, shouldSendToSentry, toHttpResponse, toLogObject } from "../../error/error-data.js";
-import { ErrorType } from "../../error/error-types.js";
+import {
+    createErrorData,
+    getOriginalError,
+    shouldSendToSentry,
+    toHttpResponse,
+    toLogObject,
+} from "../../error/error-data.js";
 import { isCustomError, type CustomError } from "../../error/error-helpers.js";
+import { ErrorType } from "../../error/error-types.js";
+import { sendToSentry } from "../sentry/plugin.js";
 
 export type ErrorPipeOptions = {
     /**
@@ -28,7 +34,7 @@ export type ErrorPipeOptions = {
      * Default: false (can contain sensitive data)
      */
     captureRequestBody?: boolean;
-}
+};
 
 /**
  * Sanitizes headers by redacting sensitive ones
@@ -88,7 +94,11 @@ export function createErrorPipe(logger: pino.Logger, options: ErrorPipeOptions =
 
     const shouldIncludeDetails = includeErrorDetails || environment === "dev" || environment === "local";
 
-    return async function errorPipe(error: FastifyError | CustomError | Error, request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    return async function errorPipe(
+        error: FastifyError | CustomError | Error,
+        request: FastifyRequest,
+        reply: FastifyReply
+    ): Promise<void> {
         // Create child logger with request ID
         const requestLogger = logger.child({ req_id: request.id });
 
@@ -150,8 +160,6 @@ export function createErrorPipe(logger: pino.Logger, options: ErrorPipeOptions =
                 },
                 "Server error occurred"
             );
-        } else {
-            requestLogger.warn(toLogObject(errorData), "Client error occurred");
         }
 
         // Send to Sentry if applicable
