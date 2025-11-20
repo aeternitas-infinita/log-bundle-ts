@@ -11,7 +11,7 @@ import fastify from "fastify";
 import { createLogger, createErrorPipe } from "log-bundle";
 
 const app = fastify({
-  logger: createLogger(),
+  loggerInstance: createLogger(),
 });
 
 // 1. Register plugins (CORS, compression, etc.)
